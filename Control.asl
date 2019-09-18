@@ -1,7 +1,10 @@
 state("Control_DX11", "DX11") { }
 state("Control_DX12", "DX12") { }
 
-// Open Control before LiveSplit
+startup
+{
+    vars.gameClosed = false;
+}
 
 init
 {
@@ -16,16 +19,38 @@ init
         throw new Exception("Scan failed!");
     }
 
+    Thread.Sleep(2500); // Give the game a chance to initialize..
+
     var offset = game.ReadValue<int>(gameScan);
     vars.isLoading = new MemoryWatcher<bool>(new DeepPointer(modules.First().ModuleName, (int)((long)(gameScan + offset + 4) - (long)modules.First().BaseAddress), 0x30, 0x393));
+    vars.state = new MemoryWatcher<uint>(new DeepPointer(modules.First().ModuleName, (int)((long)(gameScan + offset + 4) - (long)modules.First().BaseAddress), 0x30, 0x1A8));
+
+    if (vars.gameClosed)
+    {
+        timer.IsGameTimePaused = false;
+    }
+}
+
+exit
+{
+    timer.IsGameTimePaused = true;
+    vars.gameClosed = true;
 }
 
 update
 {
     vars.isLoading.Update(game);
+    vars.state.Update(game);
 }
 
 isLoading
 {
-    return vars.isLoading.Current;
+    return vars.isLoading.Current || vars.state.Current == 0xD439EBF1 || vars.state.Current == 0xB5C73550 || vars.state.Current == 0x63C25A55 || vars.state.Current == 0;
 }
+
+/*
+    Used state hashes:
+    0xD439EBF1 = ClientStateStart
+    0xB5C73550 = ClientStateSplashScreen
+    0x63C25A55 = ClientStateMainMenu
+*/
