@@ -47,11 +47,12 @@ update
 
 isLoading
 {
-    return vars.isLoading.Current || vars.state.Current == 0xD439EBF1 || vars.state.Current == 0xB5C73550 || vars.state.Current == 0x63C25A55 || vars.state.Current == 0;
+    return vars.isLoading.Current || vars.state.Current = 0x469239DF || vars.state.Current == 0xD439EBF1 || vars.state.Current == 0xB5C73550 || vars.state.Current == 0x63C25A55 || vars.state.Current == 0;
 }
 
 /*
-    Used state hashes:
+    Used state hashes (FNV-1a):
+    0x469239DF = ClientStatePlatformServicesLogon
     0xD439EBF1 = ClientStateStart
     0xB5C73550 = ClientStateSplashScreen
     0x63C25A55 = ClientStateMainMenu
