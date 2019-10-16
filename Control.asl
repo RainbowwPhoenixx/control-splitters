@@ -12,7 +12,7 @@ init
     var gameScan = scanner.Scan(new SigScanTarget(3,
         "48 8B 05 ????????",   // mov  rax, [Control_DX1#.exe+????????]
         "48 8B 48 30",         // mov  rcx, [rax+30]
-        "80 B9 93030000 00")); // cmp  byte ptr [rcx+393], 00
+        "80 B9 ???????? 00")); // cmp  byte ptr [rcx+?], 00
 
     if (gameScan == IntPtr.Zero)
     {
@@ -22,7 +22,9 @@ init
     Thread.Sleep(2500); // Give the game a chance to initialize..
 
     var offset = game.ReadValue<int>(gameScan);
-    vars.isLoading = new MemoryWatcher<bool>(new DeepPointer(modules.First().ModuleName, (int)((long)(gameScan + offset + 4) - (long)modules.First().BaseAddress), 0x30, 0x393));
+    var loadingOffset = game.ReadValue<short>(gameScan + 10);
+
+    vars.isLoading = new MemoryWatcher<bool>(new DeepPointer(modules.First().ModuleName, (int)((long)(gameScan + offset + 4) - (long)modules.First().BaseAddress), 0x30, loadingOffset));
     vars.state = new MemoryWatcher<uint>(new DeepPointer(modules.First().ModuleName, (int)((long)(gameScan + offset + 4) - (long)modules.First().BaseAddress), 0x30, 0x1A8));
 
     if (vars.gameClosed)
