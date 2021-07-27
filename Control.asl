@@ -9,6 +9,12 @@ startup
         "80 B9 ???????? 00"); // cmp  byte ptr [rcx+?], 00
 
     vars.inputManagerTarget = new SigScanTarget(10, "48 89 86 ?? ?? 00 00 48 89 35"); // signature to get InputManager instance pointer
+	vars.completeMissionFunctionAddressSig = new SigScanTarget(0, "49 8B CE 84 C0 74 54 48 8D 95 ?? ?? ?? ?? E8 ?? ?? ?? ?? 90 49 8B CE"); // signature to get CompleteMission function (search for "CompleteMission" string Xref in IDA, offset is 0x5246E3 in 0.96)
+	
+	vars.FreeMemory = (Action<Process>)(p =>
+    {
+        p.FreeMemory((IntPtr)vars.hookBytecodeCave);
+    });
 }
 
 init
@@ -42,6 +48,55 @@ init
 
     // InputManager.playerControlEnabled
     vars.playerControlEnabled = new MemoryWatcher<bool>(new DeepPointer(inputModule.ModuleName, (int)((long)(imScan + imOffset + 4) - (long)inputModule.BaseAddress), vars.isFoundationPatch ? 0x7D : 0x8D));
+
+
+	vars.completeMissionFunctionAddress = scanner.Scan((SigScanTarget)vars.completeMissionFunctionAddressSig);
+	if (vars.completeMissionFunctionAddress == IntPtr.Zero)
+		throw new Exception("Can't find completeMission function address");
+	vars.completeMissionFunctionAddress = (IntPtr)vars.completeMissionFunctionAddress;
+	var jmpInstructionSize = 12; //x64 creates 12 bytes instructions, 10 bytes to mov the addr to rax then 2 bytes for jmp'ing to rax
+	var overridenBytesForTrampoline = 14; //See the 4 original instructions below 
+	
+	//Original code copied (comment based on 0.96) :
+	//	0x49 ,0x8B, 0xCE, 							mov rcx,r14
+	//	0x84, 0xC0,       							test al,al
+	//	0x74, 0x54,		  							je Control_DX11.exe+52474A
+	//	0x48, 0x8D, 0x95, 0xC0, 0x05, 0x00, 0x00 	lea rdx,[rbp+000005C0]
+	vars.originalMissionCompleteFunctionCode = game.ReadBytes((IntPtr)vars.completeMissionFunctionAddress, overridenBytesForTrampoline);
+	
+	//Bytecode that executes the code overrided by the trampoline jmp + sets a boolean to true in our newly allocated memory when called
+	var missionCompleteHookBytecode = new List<byte> {0x58}; //pop rax (restore saved rax)
+	missionCompleteHookBytecode.AddRange((byte[])vars.originalMissionCompleteFunctionCode); //Adding original code
+	missionCompleteHookBytecode.AddRange(new byte[] {0xC6, 0x05, 0x18, 0x00, 0x00, 0x00, 0x01}); //mov byte ptr[pc+24],0x01 (our instruction to set our boolean to true on execution)
+	missionCompleteHookBytecode.AddRange(new byte[(jmpInstructionSize * 2) + 1] ); //We need 2 jumps, one for each branch of the "test al,al" instruction copied from the original code + 1 byte for our bool storage
+
+	vars.hookBytecodeCave = game.AllocateMemory(missionCompleteHookBytecode.Count);
+	vars.isMissionCompletedAddress = (IntPtr)vars.hookBytecodeCave + missionCompleteHookBytecode.Count - 1;
+	vars.isMissionCompleted = new MemoryWatcher<bool>(vars.isMissionCompletedAddress);
+
+	game.Suspend();
+	try {		
+		//Writing hook function into memory
+		game.WriteBytes((IntPtr)vars.hookBytecodeCave, missionCompleteHookBytecode.ToArray());
+		game.WriteJumpInstruction((IntPtr)vars.hookBytecodeCave + missionCompleteHookBytecode.Count - ((jmpInstructionSize * 2) + 1), (IntPtr)vars.completeMissionFunctionAddress + overridenBytesForTrampoline); //Set jump back to inside if on original function (je not executed)
+		game.WriteJumpInstruction((IntPtr)vars.hookBytecodeCave + missionCompleteHookBytecode.Count - (jmpInstructionSize + 1), (IntPtr)vars.completeMissionFunctionAddress + 0x54 + 7); //Set jump back to outside if on original function (je executed)
+		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00}); //Make sure our boolean starts set to false
+		game.WriteBytes((IntPtr)vars.hookBytecodeCave + 7, new byte[] {0x1A}); //Patching the je offset from original code to point to our second jmp
+		
+		//Placing trampoline on original function
+		game.WriteBytes((IntPtr)vars.completeMissionFunctionAddress, new byte[] {0x50}); //push rax
+		game.WriteJumpInstruction((IntPtr)vars.completeMissionFunctionAddress + 1, (IntPtr)vars.hookBytecodeCave); //injecting the 12 bytes trampoline jmp to our hook codecave
+		game.WriteBytes((IntPtr)vars.completeMissionFunctionAddress + 1 + jmpInstructionSize, new byte[] {0x90}); //nop the last byte
+	}
+	catch {
+		vars.FreeMemory(game);
+		game.WriteBytes((IntPtr)vars.completeMissionFunctionAddress, (byte[])vars.originalMissionCompleteFunctionCode); //Restore original bytecode
+		throw new Exception("Something went wrong when placing hooks");
+	}
+	finally {
+		game.Resume();
+	}
+
 }
 
 update
@@ -49,6 +104,7 @@ update
     vars.isLoading.Update(game);
     vars.state.Update(game);
     vars.playerControlEnabled.Update(game);
+	vars.isMissionCompleted.Update(game);
 }
 
 exit
@@ -64,6 +120,23 @@ start
 isLoading
 {
     return vars.isLoading.Current || vars.state.Current == 0x469239DF || vars.state.Current == 0xD439EBF1 || vars.state.Current == 0xB5C73550 || vars.state.Current == 0x63C25A55 || vars.state.Current == 0;
+}
+
+shutdown
+{
+	game.Suspend();
+	vars.FreeMemory(game);
+	game.WriteBytes((IntPtr)vars.completeMissionFunctionAddress, (byte[])vars.originalMissionCompleteFunctionCode); //Restore original bytecode
+	game.Resume();
+}
+
+split 
+{
+	if (vars.isMissionCompleted.Current && !vars.isMissionCompleted.Old) {
+		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
+		return true;
+	}
+	return false;
 }
 
 /*
