@@ -9,7 +9,8 @@ startup
         "80 B9 ???????? 00"); // cmp  byte ptr [rcx+?], 00
 
     vars.inputManagerTarget = new SigScanTarget(10, "48 89 86 ?? ?? 00 00 48 89 35"); // signature to get InputManager instance pointer
-	vars.completeMissionFunctionAddressSig = new SigScanTarget(0, "49 8B CE 84 C0 74 54 48 8D 95 ?? ?? ?? ?? E8 ?? ?? ?? ?? 90 49 8B CE"); // signature to get CompleteMission function (search for "CompleteMission" string Xref in IDA, offset is 0x5246E3 in 0.96)
+	vars.completeMissionFunctionAddressSig = new SigScanTarget(0, "49 8B CE 84 C0 74 54 48 8D 95 ?? ?? ?? ?? E8 ?? ?? ?? ?? 90 49 8B CE"); //Signature to get CompleteMission function (search for "CompleteMission" string Xref in IDA, offset is 0x5246E3 in 0.96)
+	vars.getInstanceSig = new SigScanTarget(5, "33 C0 48 8D 0D ?? ?? ?? ?? 48 8B 04 08 C3 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 48 89 4C 24 08"); //Signature to coreflow::Systems::getInstance(), used to get the pointer to coreflow::Systems::sm_instances
 	
 	vars.FreeMemory = (Action<Process>)(p =>
     {
@@ -23,6 +24,7 @@ init
 
     var module = modules.First();
     var inputStr = module.ModuleName == "Control_DX11.exe" ? "input_rmdwin7_f.dll" : "input_rmdwin10_f.dll";
+	var rlStr = module.ModuleName == "Control_DX11.exe" ? "rl_rmdwin7_f.dll" : "rl_rmdwin10_f.dll";
 
     var scanner = new SignatureScanner(game, module.BaseAddress, module.ModuleMemorySize);
     var gameScan = scanner.Scan((SigScanTarget)vars.gameTarget);
@@ -31,6 +33,9 @@ init
     var imScanner = new SignatureScanner(game, inputModule.BaseAddress, inputModule.ModuleMemorySize);
     var imScan = imScanner.Scan((SigScanTarget)vars.inputManagerTarget);
 
+	var rlModule = modules.Single(m => m.ModuleName == rlStr);
+	var rlScanner = new SignatureScanner(game, rlModule.BaseAddress, rlModule.ModuleMemorySize);
+	
     var offset = game.ReadValue<int>(gameScan);
     var imOffset = game.ReadValue<int>(imScan);
     var loadingOffset = game.ReadValue<int>(gameScan + 10);
@@ -67,21 +72,23 @@ init
 	//Bytecode that executes the code overrided by the trampoline jmp + sets a boolean to true in our newly allocated memory when called
 	var missionCompleteHookBytecode = new List<byte> {0x58}; //pop rax (restore saved rax)
 	missionCompleteHookBytecode.AddRange((byte[])vars.originalMissionCompleteFunctionCode); //Adding original code
-	missionCompleteHookBytecode.AddRange(new byte[] {0xC6, 0x05, 0x18, 0x00, 0x00, 0x00, 0x01}); //mov byte ptr[pc+24],0x01 (our instruction to set our boolean to true on execution)
-	missionCompleteHookBytecode.AddRange(new byte[(jmpInstructionSize * 2) + 1] ); //We need 2 jumps, one for each branch of the "test al,al" instruction copied from the original code + 1 byte for our bool storage
+	missionCompleteHookBytecode.AddRange(new byte[] {0x8B, 0x41, 0x10}); //mov eax,[rcx+10]
+	missionCompleteHookBytecode.AddRange(new byte[] {0x89, 0x05, 0x20, 0x00, 0x00, 0x00}); //mov [rip+32],eax Storing current mission GID
+	missionCompleteHookBytecode.AddRange(new byte[] {0xC6, 0x05, 0x18, 0x00, 0x00, 0x00, 0x01}); //mov byte ptr[rip+24],0x01 (our instruction to set our boolean to true on execution)
+	missionCompleteHookBytecode.AddRange(new byte[(jmpInstructionSize * 2) + 1 + 4] ); //We need 2 jumps, one for each branch of the "test al,al" instruction copied from the original code + 1 byte for our bool storage + 4 byte for mission GID storage
 
 	vars.hookBytecodeCave = game.AllocateMemory(missionCompleteHookBytecode.Count);
-	vars.isMissionCompletedAddress = (IntPtr)vars.hookBytecodeCave + missionCompleteHookBytecode.Count - 1;
+	vars.isMissionCompletedAddress = (IntPtr)vars.hookBytecodeCave + missionCompleteHookBytecode.Count - 5;
 	vars.isMissionCompleted = new MemoryWatcher<bool>(vars.isMissionCompletedAddress);
 
 	game.Suspend();
 	try {		
 		//Writing hook function into memory
 		game.WriteBytes((IntPtr)vars.hookBytecodeCave, missionCompleteHookBytecode.ToArray());
-		game.WriteJumpInstruction((IntPtr)vars.hookBytecodeCave + missionCompleteHookBytecode.Count - ((jmpInstructionSize * 2) + 1), (IntPtr)vars.completeMissionFunctionAddress + overridenBytesForTrampoline); //Set jump back to inside if on original function (je not executed)
-		game.WriteJumpInstruction((IntPtr)vars.hookBytecodeCave + missionCompleteHookBytecode.Count - (jmpInstructionSize + 1), (IntPtr)vars.completeMissionFunctionAddress + 0x54 + 7); //Set jump back to outside if on original function (je executed)
+		game.WriteJumpInstruction((IntPtr)vars.hookBytecodeCave + missionCompleteHookBytecode.Count - ((jmpInstructionSize * 2) + 5), (IntPtr)vars.completeMissionFunctionAddress + overridenBytesForTrampoline); //Set jump back to inside if on original function (je not executed)
+		game.WriteJumpInstruction((IntPtr)vars.hookBytecodeCave + missionCompleteHookBytecode.Count - (jmpInstructionSize + 5), (IntPtr)vars.completeMissionFunctionAddress + 0x54 + 7); //Set jump back to outside if on original function (je executed)
 		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00}); //Make sure our boolean starts set to false
-		game.WriteBytes((IntPtr)vars.hookBytecodeCave + 7, new byte[] {0x1A}); //Patching the je offset from original code to point to our second jmp
+		game.WriteBytes((IntPtr)vars.hookBytecodeCave + 7, new byte[] {0x23}); //Patching the je offset from original code to point to our second jmp
 		
 		//Placing trampoline on original function
 		game.WriteBytes((IntPtr)vars.completeMissionFunctionAddress, new byte[] {0x50}); //push rax
@@ -96,7 +103,10 @@ init
 	finally {
 		game.Resume();
 	}
-
+	
+	var sm_instancesptr = rlScanner.Scan((SigScanTarget)vars.getInstanceSig);
+	var sm_instances_offset = game.ReadValue<int>(sm_instancesptr);
+	vars.sm_instances = sm_instancesptr + 4 + sm_instances_offset;
 }
 
 update
@@ -134,6 +144,26 @@ split
 {
 	if (vars.isMissionCompleted.Current && !vars.isMissionCompleted.Old) {
 		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
+		//This whole RPM heavy part has to be done here rather than init as I witnessed some pointer changes during gameplay.
+		//Some cache system could be implemented with a MemoryWatcher, but the following code should be fast enough on any computer able to run that game anyway.
+	
+		//Here we are looking into the global sm_instances pool to find the mission manager component, from which we will be able to get the list of all game missions
+		var componentStateArray = game.ReadValue<IntPtr>(game.ReadValue<IntPtr>((IntPtr)vars.sm_instances + 8));
+		while (game.ReadValue<int>(componentStateArray + 8) != 0x6871eafd) //This is some kind of checksum equal to "MissionManagerSingletonComponentState"
+			componentStateArray += 24;
+		var missionManagerSingletonComponentState = game.ReadValue<IntPtr>(componentStateArray + 16);
+		var missionArrayOffset = game.ReadValue<int>(game.ReadValue<IntPtr>(missionManagerSingletonComponentState + 8) + 20);
+		var missionArray = game.ReadValue<IntPtr>(missionManagerSingletonComponentState + missionArrayOffset + 88);
+		
+		//Here we iterate into our mission array and try to match the mission globalID with the one we got from the mission completion hook
+		var missionGID = game.ReadValue<int>((IntPtr)vars.isMissionCompletedAddress + 1);
+		while (game.ReadValue<int>(missionArray + 4) != missionGID)
+			missionArray += 47 * 8;
+		var triggerName = game.ReadString(missionArray + 0xC0, 15);
+		if (triggerName == "OnAlertAppeared") {
+			print("Bureau alert, skipping");
+			return false;
+		}
 		return true;
 	}
 	return false;
