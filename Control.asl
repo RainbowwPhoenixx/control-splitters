@@ -11,10 +11,11 @@ startup
     vars.inputManagerTarget = new SigScanTarget(10, "48 89 86 ?? ?? 00 00 48 89 35"); // signature to get InputManager instance pointer
 	vars.completeMissionFunctionAddressSig = new SigScanTarget(0, "49 8B CE 84 C0 74 54 48 8D 95 ?? ?? ?? ?? E8 ?? ?? ?? ?? 90 49 8B CE"); //Signature to get CompleteMission function (search for "CompleteMission" string Xref in IDA, offset is 0x5246E3 in 0.96)
 	vars.getInstanceSig = new SigScanTarget(5, "33 C0 48 8D 0D ?? ?? ?? ?? 48 8B 04 08 C3 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 48 89 4C 24 08"); //Signature to coreflow::Systems::getInstance(), used to get the pointer to coreflow::Systems::sm_instances
-	
+	vars.completeObjectiveFunctionAddressSig = new SigScanTarget(1, "57 41 56 41 57 48 83 EC 20 45 0F B6 F9 49 8B F8 4C 8B F2 48 8B F1 E8");//Siganture to the function called by CompleteStep 
 	vars.FreeMemory = (Action<Process>)(p =>
     {
         p.FreeMemory((IntPtr)vars.hookBytecodeCave);
+		p.FreeMemory((IntPtr)vars.objectiveHookBytecodeCave);
     });
 }
 
@@ -69,7 +70,7 @@ init
 	//	0x48, 0x8D, 0x95, 0xC0, 0x05, 0x00, 0x00 	lea rdx,[rbp+000005C0]
 	vars.originalMissionCompleteFunctionCode = game.ReadBytes((IntPtr)vars.completeMissionFunctionAddress, overridenBytesForTrampoline);
 	
-	//Bytecode that executes the code overrided by the trampoline jmp + sets a boolean to true in our newly allocated memory when called
+	//Bytecode that executes the code overrided by the trampoline jmp + sets a boolean to true and stores mission GID in our newly allocated memory when called
 	var missionCompleteHookBytecode = new List<byte> {0x58}; //pop rax (restore saved rax)
 	missionCompleteHookBytecode.AddRange((byte[])vars.originalMissionCompleteFunctionCode); //Adding original code
 	missionCompleteHookBytecode.AddRange(new byte[] {0x8B, 0x41, 0x10}); //mov eax,[rcx+10]
@@ -80,6 +81,28 @@ init
 	vars.hookBytecodeCave = game.AllocateMemory(missionCompleteHookBytecode.Count);
 	vars.isMissionCompletedAddress = (IntPtr)vars.hookBytecodeCave + missionCompleteHookBytecode.Count - 5;
 	vars.isMissionCompleted = new MemoryWatcher<bool>(vars.isMissionCompletedAddress);
+
+	vars.completeObjectiveFunctionAddress = scanner.Scan((SigScanTarget)vars.completeObjectiveFunctionAddressSig);
+	if (vars.completeObjectiveFunctionAddress == IntPtr.Zero)
+		throw new Exception("Can't find completeStep function address");
+	var overridenBytesForObjectiveTrampoline = 12;
+	//Original code copied (comment based on 0.96) :
+	//Control_DX11.exe+3EFD8B - 41 56                 - push r14
+	//Control_DX11.exe+3EFD8D - 41 57                 - push r15
+	//Control_DX11.exe+3EFD8F - 48 83 EC 20           - sub rsp,20
+	//Control_DX11.exe+3EFD93 - 45 0FB6 F9            - movzx r15d,r9l
+
+	vars.originalObjectiveCompleteFunctionCode = game.ReadBytes((IntPtr)vars.completeObjectiveFunctionAddress, overridenBytesForObjectiveTrampoline);
+	
+	//Bytecode that executes the code overrided by the trampoline jmp + stores latest objective hash in our newly allocated memory when called
+	var objectiveCompleteHookBytecode = new List<byte>((byte[])vars.originalObjectiveCompleteFunctionCode);
+	objectiveCompleteHookBytecode.AddRange(new byte[] {0x49, 0x8b, 0x38}); //mov  rdi,QWORD PTR [r8]
+	objectiveCompleteHookBytecode.AddRange(new byte[] {0x48, 0x89, 0x3D, 0x0C, 0x00, 0x00, 0x00}); //mov QWORD PTR [rip+0xc],rdi
+	objectiveCompleteHookBytecode.AddRange(new byte[jmpInstructionSize + 8] ); //We need one jump + 8 bytes for storing objective hash
+
+	vars.objectiveHookBytecodeCave = game.AllocateMemory(objectiveCompleteHookBytecode.Count);
+	vars.latestObjectiveHashAddress = (IntPtr)vars.objectiveHookBytecodeCave + objectiveCompleteHookBytecode.Count - 8;
+	vars.latestObjectiveHash = new MemoryWatcher<UInt64>(vars.latestObjectiveHashAddress);
 
 	game.Suspend();
 	try {		
@@ -94,10 +117,19 @@ init
 		game.WriteBytes((IntPtr)vars.completeMissionFunctionAddress, new byte[] {0x50}); //push rax
 		game.WriteJumpInstruction((IntPtr)vars.completeMissionFunctionAddress + 1, (IntPtr)vars.hookBytecodeCave); //injecting the 12 bytes trampoline jmp to our hook codecave
 		game.WriteBytes((IntPtr)vars.completeMissionFunctionAddress + 1 + jmpInstructionSize, new byte[] {0x90}); //nop the last byte
+		
+		//Writing hook function into memory
+		game.WriteBytes((IntPtr)vars.objectiveHookBytecodeCave, objectiveCompleteHookBytecode.ToArray());
+		game.WriteJumpInstruction((IntPtr)vars.objectiveHookBytecodeCave + objectiveCompleteHookBytecode.Count - (jmpInstructionSize + 8), (IntPtr)vars.completeObjectiveFunctionAddress + overridenBytesForObjectiveTrampoline); //Set jump back to outside if on original function
+		game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+		
+		//Placing trampoline on original function
+		game.WriteJumpInstruction((IntPtr)vars.completeObjectiveFunctionAddress, (IntPtr)vars.objectiveHookBytecodeCave); //injecting the 12 bytes trampoline jmp to our hook codecave
 	}
 	catch {
 		vars.FreeMemory(game);
 		game.WriteBytes((IntPtr)vars.completeMissionFunctionAddress, (byte[])vars.originalMissionCompleteFunctionCode); //Restore original bytecode
+		game.WriteBytes((IntPtr)vars.completeObjectiveFunctionAddress, (byte[])vars.originalObjectiveCompleteFunctionCode); //Restore original bytecode
 		throw new Exception("Something went wrong when placing hooks");
 	}
 	finally {
@@ -107,6 +139,8 @@ init
 	var sm_instancesptr = rlScanner.Scan((SigScanTarget)vars.getInstanceSig);
 	var sm_instances_offset = game.ReadValue<int>(sm_instancesptr);
 	vars.sm_instances = sm_instancesptr + 4 + sm_instances_offset;
+	
+	vars.ignoreFirstDylanSplit = true;
 }
 
 update
@@ -115,6 +149,7 @@ update
     vars.state.Update(game);
     vars.playerControlEnabled.Update(game);
 	vars.isMissionCompleted.Update(game);
+	vars.latestObjectiveHash.Update(game);
 }
 
 exit
@@ -137,6 +172,7 @@ shutdown
 	game.Suspend();
 	vars.FreeMemory(game);
 	game.WriteBytes((IntPtr)vars.completeMissionFunctionAddress, (byte[])vars.originalMissionCompleteFunctionCode); //Restore original bytecode
+	game.WriteBytes((IntPtr)vars.completeObjectiveFunctionAddress, (byte[])vars.originalObjectiveCompleteFunctionCode); //Restore original bytecode
 	game.Resume();
 }
 
@@ -166,6 +202,16 @@ split
 		}
 		return true;
 	}
+	if (vars.latestObjectiveHash.Current == 0x1C34375B7D39C051 && !vars.playerControlEnabled.Current && vars.playerControlEnabled.Old) {
+		if (vars.ignoreFirstDylanSplit) {
+			vars.ignoreFirstDylanSplit = false;
+			return false;
+		}
+		game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+		return true;
+	}
+	if (vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old && vars.latestObjectiveHash.Old == 0x1C34375B7D39C051)
+		vars.ignoreFirstDylanSplit = true;
 	return false;
 }
 
@@ -177,3 +223,4 @@ split
     0x63C25A55 = ClientStateMainMenu
     0xE89FFD52 = ClientStateInGame
 */
+
