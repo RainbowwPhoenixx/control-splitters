@@ -202,13 +202,16 @@ split
 		}
 		return true;
 	}
-	if (vars.latestObjectiveHash.Current == 0x1C34375B7D39C051 && !vars.playerControlEnabled.Current && vars.playerControlEnabled.Old) {
+	else if (vars.latestObjectiveHash.Current == 0x1C34375B7D39C051 && !vars.playerControlEnabled.Current && vars.playerControlEnabled.Old) {
 		if (vars.ignoreFirstDylanSplit) {
 			vars.ignoreFirstDylanSplit = false;
 			return false;
 		}
 		game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
 		return true;
+	}
+	else if (vars.isMissionCompleted.Current.Current && vars.isMissionCompleted.Old) { //This happens at least once at the end of a run, because split isn't called (we end on dylan intercation) but mission still complete when getting back to bureau, our boolean will be stuck on true and break the autosplitter until game restart.
+		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
 	}
 	if (vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old && vars.latestObjectiveHash.Old == 0x1C34375B7D39C051)
 		vars.ignoreFirstDylanSplit = true;
