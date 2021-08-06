@@ -1,3 +1,5 @@
+//By MrLette, based off Wangler auto-start/load remover. Anyone is free to host, fork or modify the following code.
+
 state("Control_DX11", "DX11") { }
 state("Control_DX12", "DX12") { }
 
@@ -178,7 +180,7 @@ shutdown
 
 split 
 {
-	if (vars.isMissionCompleted.Current && !vars.isMissionCompleted.Old) {
+	if (vars.isMissionCompleted.Current && !vars.isMissionCompleted.Old && !vars.isLoading.Current) {
 		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
 		//This whole RPM heavy part has to be done here rather than init as I witnessed some pointer changes during gameplay.
 		//Some cache system could be implemented with a MemoryWatcher, but the following code should be fast enough on any computer able to run that game anyway.
@@ -210,7 +212,7 @@ split
 		game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
 		return true;
 	}
-	else if (vars.isMissionCompleted.Current.Current && vars.isMissionCompleted.Old) { //This happens at least once at the end of a run, because split isn't called (we end on dylan intercation) but mission still complete when getting back to bureau, our boolean will be stuck on true and break the autosplitter until game restart.
+	else if (vars.isMissionCompleted.Current && vars.isMissionCompleted.Old) { //This happens at least once at the end of a run, because split isn't called (we end on dylan intercation) but mission still complete when getting back to bureau, our boolean will be stuck on true and break the autosplitter until game restart.
 		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
 	}
 	if (vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old && vars.latestObjectiveHash.Old == 0x1C34375B7D39C051)
