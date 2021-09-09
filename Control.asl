@@ -19,6 +19,8 @@ startup
         p.FreeMemory((IntPtr)vars.hookBytecodeCave);
 		p.FreeMemory((IntPtr)vars.objectiveHookBytecodeCave);
     });
+
+	settings.Add("intro_subsplits", false, "Additional subsplits for intro & unknown caller");
 }
 
 init
@@ -141,17 +143,31 @@ init
 	var sm_instancesptr = rlScanner.Scan((SigScanTarget)vars.getInstanceSig);
 	var sm_instances_offset = game.ReadValue<int>(sm_instancesptr);
 	vars.sm_instances = sm_instancesptr + 4 + sm_instances_offset;
-	
-	vars.ignoreFirstDylanSplit = true;
+
+	vars.autoEndNext = false; //probs need to clear this elsewhere too
 }
 
 update
 {
-    vars.isLoading.Update(game);
-    vars.state.Update(game);
-    vars.playerControlEnabled.Update(game);
-	vars.isMissionCompleted.Update(game);
-	vars.latestObjectiveHash.Update(game);
+
+	vars.isLoading.Update(game);
+	vars.state.Update(game);
+
+	if (settings.StartEnabled || settings.SplitEnabled) {
+		vars.playerControlEnabled.Update(game);
+	}
+	
+	if (settings.SplitEnabled) {
+		vars.isMissionCompleted.Update(game);
+		vars.latestObjectiveHash.Update(game);
+	}
+	
+	if (vars.state.Current != vars.state.Old || vars.playerControlEnabled.Current != vars.playerControlEnabled.Old || vars.isLoading.Current != vars.isLoading.Old || vars.isMissionCompleted.Current != vars.isMissionCompleted.Old || vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old) {
+		print("vars.state " + ((UInt64)vars.state.Current).ToString("X") + " - vars.playerControlEnabled " + (vars.playerControlEnabled.Current).ToString() + " - vars.isLoading " + (vars.isLoading.Current).ToString() + " - vars.isMissionCompleted " + (vars.isMissionCompleted.Current).ToString());
+	}
+	if (vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old) {
+		print("vars.latestObjectiveHash Old " + ((IntPtr)vars.latestObjectiveHash.Old).ToString("X") + " - Current " + ((IntPtr)vars.latestObjectiveHash.Current).ToString("X"));
+	}
 }
 
 exit
@@ -178,9 +194,37 @@ shutdown
 	game.Resume();
 }
 
-split 
+split
 {
-	if (vars.isMissionCompleted.Current && !vars.isMissionCompleted.Old && !vars.isLoading.Current) {
+
+	if (vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old)
+	{
+		if (!vars.autoEndNext && vars.latestObjectiveHash.Current == 0x1C34375B7D39C051 && vars.latestObjectiveHash.Old != 0 /*== 0x2A351C86227EC051*/) { //can't check for that because bureau alerts...
+			print("catching autoEnd");
+			vars.autoEndNext = true;
+			refreshRate = 1; //HACKHACKHACK: i know this is really bad, but because we track the final cutscene with playerControlEnabled, which sometimes updates later than the objective, we need to wait a second so it doesn't split on the projector
+			return false;
+		}
+	}
+
+	if (vars.autoEndNext)
+	{
+		if (refreshRate == 1) {
+			refreshRate = 60;
+			return false;
+		}
+
+		if (vars.autoEndNext && !vars.playerControlEnabled.Current && vars.playerControlEnabled.Old) {
+			print("triggering end split");
+			vars.autoEndNext = false;
+			game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+			return true;
+		}
+		//return false;
+	}
+
+	if (vars.isMissionCompleted.Current && !vars.isMissionCompleted.Old)
+	{
 		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
 		//This whole RPM heavy part has to be done here rather than init as I witnessed some pointer changes during gameplay.
 		//Some cache system could be implemented with a MemoryWatcher, but the following code should be fast enough on any computer able to run that game anyway.
@@ -192,11 +236,26 @@ split
 		var missionManagerSingletonComponentState = game.ReadValue<IntPtr>(componentStateArray + 16);
 		var missionArrayOffset = game.ReadValue<int>(game.ReadValue<IntPtr>(missionManagerSingletonComponentState + 8) + 20);
 		var missionArray = game.ReadValue<IntPtr>(missionManagerSingletonComponentState + missionArrayOffset + 88);
+		var missionArraySize = game.ReadValue<int>(missionManagerSingletonComponentState + missionArrayOffset + 96);
 		
 		//Here we iterate into our mission array and try to match the mission globalID with the one we got from the mission completion hook
 		var missionGID = game.ReadValue<int>((IntPtr)vars.isMissionCompletedAddress + 1);
-		while (game.ReadValue<int>(missionArray + 4) != missionGID)
+		
+		print("missionGID " + ((int)missionGID).ToString("X") + " - missionArraySize " + missionArraySize.ToString());
+		if (missionGID == 0x529729E) { //special case for "Endgame" mission, to stop it from splitting on the credits
+			return false;
+		}
+
+		int i = 0;
+		while (game.ReadValue<int>(missionArray + 4) != missionGID) {
+			if (i > missionArraySize) {
+				print("Mission not found in missionArray (invalid or undefined), skipping");
+				return false;
+			}
 			missionArray += 47 * 8;
+			i++;
+		}
+
 		var triggerName = game.ReadString(missionArray + 0xC0, 15);
 		if (triggerName == "OnAlertAppeared") {
 			print("Bureau alert, skipping");
@@ -204,19 +263,53 @@ split
 		}
 		return true;
 	}
-	else if (vars.latestObjectiveHash.Current == 0x1C34375B7D39C051 && !vars.playerControlEnabled.Current && vars.playerControlEnabled.Old) {
-		if (vars.ignoreFirstDylanSplit) {
-			vars.ignoreFirstDylanSplit = false;
-			return false;
-		}
-		game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-		return true;
-	}
 	else if (vars.isMissionCompleted.Current && vars.isMissionCompleted.Old) { //This happens at least once at the end of a run, because split isn't called (we end on dylan intercation) but mission still complete when getting back to bureau, our boolean will be stuck on true and break the autosplitter until game restart.
 		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
 	}
-	if (vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old && vars.latestObjectiveHash.Old == 0x1C34375B7D39C051)
-		vars.ignoreFirstDylanSplit = true;
+
+	if (vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old)
+	{
+
+		if (settings["intro_subsplits"])
+		{
+			/*
+			should check for the current mission gid?
+			maybe it'd be a better idea to check against the old as well, incase this causes any random splits later
+			could also probably check the expected inputEnabled state as well just to be totally safe
+			*/
+
+			switch ((UInt64)vars.latestObjectiveHash.Current)
+			{ // maybe this should be checking against the old objectiveHash as well, incase this causes any random splits down the line....
+
+				case 0x80C6DA414868051:		//Investigate the noise in the Director's Office (reaching office) MAYBE REMOVE THIS ONE
+				case 0x29FECD336DD44051:	//Welcome to the Oldest House - Follow the Board's instructions to complete the Astral Plane Challenge (astral plane)
+				case 0x10469758BD9F0051:	//Welcome to the Oldest House - Proceed Further Into the Bureau (leaving astral plane)
+				case 0x3132CD8588D24051:	//Welcome to the Oldest House - Cleanse the Control Point
+				//case 0x318295969DC70051:	//Welcome to the Oldest House - Speak with the voice on the Safe Room Intercom 
+				//case 0x32330AEED172C051:	//Welcome to the Oldest House - Cleanse the Hiss-corrupted Agent
+				case 0x3774770F0180051:		//Welcome to the Oldest House - Speak with Emily Pope
+				//case 0x51DD0111FFB0051:		//Welcome to the Oldest House/Unknown Caller - Enter the Communications Dept. to find the Hotline
+				case 0x367A9559D4A9C051:	//Unknown Caller - Navigate through the Communications Dept. (cleansed dead letters cp)
+				//case 0x1E47AA743A050051:	//Unknown Caller - Reach the Object of Power to Cleanse it
+				case 0x13607262FE258051:	//Unknown Caller - Use Launch to complete the Astral Plane challenge
+				case 0x14D67242479FC051:	//Unknown Caller - Proceed through the Communications Dept.
+				//everything below might be skippable in the future
+				//case 0x3D50D4AC7F740051:	//Unknown Caller - Find the Hotline Object of Power
+				case 0x35806926DF63C051:	//Unknown Caller - Traverse the Oceanview Motel
+				case 0x16BDA8576AB68051:	//Unknown Caller - Pick up the Hotline
+				//case 0xE8B59972B254051:		//Unknown Caller - Complete the Astral Plane Challenge
+				case 0x21D1ECA6BEAA4051:	//Unknown Caller - Speak with Emily
+				//case 0x2CA177693EB94051:	//Directorial Override - Find Ahti the janitor
+				case 0x22F74A8FE8D0C051:	//Merry Chase - Use evade to complete the Astral Plane challenge
+				//case 0x35CAA03DC7334051:	//Directorial Override - Find a way to fix the NSC Power Plant - skipped with slidey
+				//case 0x152DB5CD65554051:	//Directorial Override - Speak with Emily
+					return true;
+				default:
+				break;
+			}
+		}
+	}
+
 	return false;
 }
 
@@ -228,4 +321,12 @@ split
     0x63C25A55 = ClientStateMainMenu
     0xE89FFD52 = ClientStateInGame
 */
+
+/*
+	Used/useful objective hashes
+	0x3FDF050CEAC10051 //Polaris - Cleanse the siphons
+	0xC31E52063870051 //Polaris - Reach Polaris (credits starting)
+	0x1C34375B7D39C051 //Take Control - Turn off the Slide Projector (updated at Reach Dylan)
+*/
+
 
