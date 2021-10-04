@@ -245,6 +245,9 @@ split
 		if (missionGID == 0x529729E) { //special case for "Endgame" mission, to stop it from splitting on the credits
 			return false;
 		}
+		else if (missionGID == 0x1F0E75B7) { //another special case for Self Reflection, since skips have been found that allow completing the mission without starting it (for All Bosses I guess)
+			return true;
+		}
 
 		int i = 0;
 		while (game.ReadValue<int>(missionArray + 4) != missionGID) {
@@ -327,6 +330,9 @@ split
 	0x3FDF050CEAC10051 //Polaris - Cleanse the siphons
 	0xC31E52063870051 //Polaris - Reach Polaris (credits starting)
 	0x1C34375B7D39C051 //Take Control - Turn off the Slide Projector (updated at Reach Dylan)
+
+	0x529729E //Mision hash for Take Control/Endgame
+	0x1F0E75B7 //Mission hash for Self Reflection
 */
 
 
