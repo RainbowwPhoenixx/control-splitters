@@ -191,18 +191,33 @@ exit
 
 start
 {
-    if (vars.state.Current == 0xE89FFD52 && !vars.playerControlEnabled.Old && vars.playerControlEnabled.Current)
+	if (settings["dlc_support"])
+	{//dlc autostart mayb..?
+		if (settings["expeditions_dlc"]) { //add later
+		}
+		else if (vars.isFoundationPatch)
+		{
+			if (settings["foundation_dlc"]) {
+				if (vars.latestObjectiveHash.Current != (UInt64)vars.latestObjectiveHash.Old && (UInt64)vars.latestObjectiveHash.Current == 0x381EE2B72AE34051) {
+					return true;
+				}
+			}
+			else if (settings["awe_dlc"]) {
+				if (!vars.isLoading.Current && vars.isLoading.Old) { //well obviously this works but causes a lot of false-starts, would be better if we were able to check the map being loaded, or active mission (displayed on HUD)
+					//game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
+					game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+					return true;
+				}
+			}
+		}
+	}
+	else if (vars.state.Current == 0xE89FFD52 && !vars.playerControlEnabled.Old && vars.playerControlEnabled.Current)
 	{
 		//clear these now so our first subsplit doesn't get ignored
 		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
 		game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
 		return true;
 	}
-	/*else if (settings["awe_dlc"]) { //ehh autostart mayb..?
-		if (vars.isLoading.Current) {
-			return true;
-		}
-	}*/
 
 	return false;
 }
@@ -341,52 +356,80 @@ split
 			}
 		}
 
-		/*if (settings["expeditions_dlc"])
+		if (settings["dlc_support"])
 		{
-			switch ((UInt64)vars.latestObjectiveHash.Current)
+			/*if (settings["expeditions_dlc"])
 			{
-				case 3:
-					return true;
-				default:
-					break;
-			}
-		}*/
+				switch ((UInt64)vars.latestObjectiveHash.Current)
+				{
+					case 3:
+						return true;
+					default:
+						break;
+				}
+			}*/
 
-		/*if (vars.isFoundationPatch && settings["foundation_dlc"])
-		{
-			switch ((UInt64)vars.latestObjectiveHash.Current)
+			//these probably totally break inbounds or with an alternate route/order
+			if (vars.isFoundationPatch)
 			{
-				//THE FOUNDATION
-				case 0x146499859B788051:
-					return true;
-				default:
-					break;
-			}
-		}*/
+				
+				if (settings["foundation_dlc"])
+				{
+					switch ((UInt64)vars.latestObjectiveHash.Current)
+					{
+						//THE FOUNDATION
+						case 0x119FA53302A50051: //Investigate the Nail or whatever 
+						//case 0x1B0C6E0946F10051: //Explore the Astral Plane Challenge x1?
+						case 0x34218EFD2D6DC051:  //Complete the Astral Plane Challenge
+							return true;
+						//THE NAIL
+						case 0x3A696D83C0970051: //Complete the Ritual in the Warehouse
+						case 0xD44A7C450B00051: //Warehouse complete
+						case 0x5A4718B582F8051:  //Complete the ritual in the Collapsed Department
+						case 0x216E530535514051: //Collapsed department done ig UNKNOWN WTF WTF WTF
+						case 0x195619844FFE0051:  //Collapsed department done ? (Complete ritual in the Deep Cavern is left)
+						case 0x38384013E28B0051: //site gamma + canyon rim (collapsed dept done)
+						
+						case 0x1D7253050CBA4051: //Reach the Canyon Rim + Complete the ritual in the Deep Cavern
+						case 0x2507179EE174C051: //Reach the Canyon Rim + Complete the ritual in the Deep Cavern (UNKNOWN WTF WTF WTF ?)
+						case 0x2A91E334C2250051: //Reach the Canyon Rim (deep cavern done)
+						case 0x6BE65486A6E4051: ////Complete the ritual in the Astral Plane (Foundation / Canyon Rim)
+							return true;
+						//THE PYRAMID
+						case 0x3E5E8A543CA30051: //Reach the bottom of the Nail (actually using this to finish The Nail split)
+						case 0x1804BDFBEC60051: //Defeat marshall
+						case 0x16EC5F1B76790051: //Cleanse the Nail
+							return true;
+						default:
+							break;
+					}
+				}
 
-		if (vars.isFoundationPatch && settings["awe_dlc"])
-		{
-			switch ((UInt64)vars.latestObjectiveHash.Current)
-			{
-				//A DARK PLACE
-				case 0x2FEC2B16318A4051: //Traverse the Oceanview Motel
-				case 0x1864139D5AF9C051: //Explore the Investigations Sector x2
-				//case 0x1C5065A615590051: //Activate the lights to defeat the creature ?
-				case 0x342F2F4201EDC051: //Explore the Investigations Sector x3
-					return true;
-				//THE THIRD THING
-				case 0x146499859B788051: //dunno what objective name this has but it came after defeating hartman in the AWE transit bay
-				case 0x303B38B8A0AF4051:  //Find Hartman in the Fra Mauro AWE area
-				case 0x18B8DF5CCE514051: //Activate the lights to defeat hartman
-				case 0x2BBFEED1A464C051: //Return to the Active Investigations
-					return true;
-				//THE THIRD THING
-				//case 0x1FA976B3B7C84051: //Traverse the Oceanview Motel
-				case 0x30B841738945C051: //motel finished
-				case 0x33673D226AC78051: //Defeat Hartman
-					return true;
-				default:
-					break;
+				if (settings["awe_dlc"])
+				{
+					switch ((UInt64)vars.latestObjectiveHash.Current)
+					{
+						//A DARK PLACE
+						case 0x2FEC2B16318A4051: //Traverse the Oceanview Motel
+						case 0x1864139D5AF9C051: //Explore the Investigations Sector x2
+						//case 0x1C5065A615590051: //Activate the lights to defeat the creature ?
+						case 0x342F2F4201EDC051: //Explore the Investigations Sector x3
+							return true;
+						//THE THIRD THING
+						case 0x146499859B788051: //dunno what objective name this has but it came after defeating hartman in the AWE transit bay
+						case 0x303B38B8A0AF4051:  //Find Hartman in the Fra Mauro AWE area
+						case 0x18B8DF5CCE514051: //Activate the lights to defeat hartman
+						case 0x2BBFEED1A464C051: //Return to the Active Investigations
+							return true;
+						//IT'S HAPPENING AGAIN
+						case 0x1FA976B3B7C84051: //Traverse the Oceanview Motel
+						case 0x30B841738945C051: //motel finished
+						case 0x33673D226AC78051: //Defeat Hartman
+							return true;
+						default:
+							break;
+					}
+				}
 			}
 		}
 	}
@@ -427,6 +470,7 @@ split
 	Objective hashes for AWE DLC
 	//notes below are the reported values with the respective objective string (so the hashes are probably for the objective before)
 	//confusing im sure but oh well
+	//also these r probably gonna break on route change
 	//A Dark Place
 	0xFB9DC88B3600051 //Take an Elevator to the Investigations Sector -> Explore the Investigations Sector (after elevator opens) ?
 	0x2FEC2B16318A4051 //Traverse the Oceanview Motel
