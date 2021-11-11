@@ -20,7 +20,16 @@ startup
 		p.FreeMemory((IntPtr)vars.objectiveHookBytecodeCave);
     });
 
-	settings.Add("intro_subsplits", false, "Additional subsplits for intro & unknown caller");
+	settings.Add("intro_subsplits", false, "Intro & Unknown Caller subsplits");
+	
+	settings.Add("allbosses_subsplits", false, "Subsplits for defeating bosses for all bosses category"); //todo..
+
+	settings.Add("dlc_support", false, "DLC Mission subsplits");
+	settings.Add("expeditions_dlc", false, "Expeditions", "dlc_support");
+	settings.Add("foundation_dlc", false, "The Foundation", "dlc_support");
+	settings.Add("awe_dlc", false, "AWE", "dlc_support");
+
+	settings.Add("debug_spew", false, "debug spew");
 }
 
 init
@@ -168,6 +177,11 @@ update
 	if (vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old) {
 		print("vars.latestObjectiveHash Old " + ((IntPtr)vars.latestObjectiveHash.Old).ToString("X") + " - Current " + ((IntPtr)vars.latestObjectiveHash.Current).ToString("X"));
 	}
+
+	//delete me
+	if (settings["debug_spew"]) {
+		print("vars.latestObjectiveHash " + ((IntPtr)vars.latestObjectiveHash.Current).ToString("X"));
+	}
 }
 
 exit
@@ -177,7 +191,20 @@ exit
 
 start
 {
-    return vars.state.Current == 0xE89FFD52 && !vars.playerControlEnabled.Old && vars.playerControlEnabled.Current;
+    if (vars.state.Current == 0xE89FFD52 && !vars.playerControlEnabled.Old && vars.playerControlEnabled.Current)
+	{
+		//clear these now so our first subsplit doesn't get ignored
+		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
+		game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+		return true;
+	}
+	/*else if (settings["awe_dlc"]) { //ehh autostart mayb..?
+		if (vars.isLoading.Current) {
+			return true;
+		}
+	}*/
+
+	return false;
 }
 
 isLoading
@@ -262,6 +289,8 @@ split
 		var triggerName = game.ReadString(missionArray + 0xC0, 15);
 		if (triggerName == "OnAlertAppeared") {
 			print("Bureau alert, skipping");
+			//maybe reset objective hash here??
+			//game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, vars.latestObjectiveHash.Old);
 			return false;
 		}
 		return true;
@@ -308,8 +337,67 @@ split
 				//case 0x152DB5CD65554051:	//Directorial Override - Speak with Emily
 					return true;
 				default:
-				break;
+					break;
 			}
+		}
+
+		/*if (settings["expeditions_dlc"])
+		{
+			switch ((UInt64)vars.latestObjectiveHash.Current)
+			{
+				case 3:
+					return true;
+				default:
+					break;
+			}
+		}*/
+
+		/*if (vars.isFoundationPatch && settings["foundation_dlc"])
+		{
+			switch ((UInt64)vars.latestObjectiveHash.Current)
+			{
+				//THE FOUNDATION
+				case 0x146499859B788051:
+					return true;
+				default:
+					break;
+			}
+		}*/
+
+		if (vars.isFoundationPatch && settings["awe_dlc"])
+		{
+			switch ((UInt64)vars.latestObjectiveHash.Current)
+			{
+				//A DARK PLACE
+				case 0x2FEC2B16318A4051: //Traverse the Oceanview Motel
+				case 0x1864139D5AF9C051: //Explore the Investigations Sector x2
+				//case 0x1C5065A615590051: //Activate the lights to defeat the creature ?
+				case 0x342F2F4201EDC051: //Explore the Investigations Sector x3
+					return true;
+				//THE THIRD THING
+				case 0x146499859B788051: //dunno what objective name this has but it came after defeating hartman in the AWE transit bay
+				case 0x303B38B8A0AF4051:  //Find Hartman in the Fra Mauro AWE area
+				case 0x18B8DF5CCE514051: //Activate the lights to defeat hartman
+				case 0x2BBFEED1A464C051: //Return to the Active Investigations
+					return true;
+				//THE THIRD THING
+				//case 0x1FA976B3B7C84051: //Traverse the Oceanview Motel
+				case 0x30B841738945C051: //motel finished
+				case 0x33673D226AC78051: //Defeat Hartman
+					return true;
+				default:
+					break;
+			}
+		}
+	}
+
+	if (vars.isFoundationPatch && !vars.playerControlEnabled.Current && vars.playerControlEnabled.Old)
+	{ //auto end for dlcs ?
+
+		if ((UInt64)vars.latestObjectiveHash.Current == 0x33673D226AC78051 && settings["awe_dlc"])
+		{ //AWE
+			game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+			return true;
 		}
 	}
 
@@ -333,6 +421,34 @@ split
 
 	0x529729E //Mision hash for Take Control/Endgame
 	0x1F0E75B7 //Mission hash for Self Reflection
+
+	Rest of the objective subsplits are commented above
+
+	Objective hashes for AWE DLC
+	//notes below are the reported values with the respective objective string (so the hashes are probably for the objective before)
+	//confusing im sure but oh well
+	//A Dark Place
+	0xFB9DC88B3600051 //Take an Elevator to the Investigations Sector -> Explore the Investigations Sector (after elevator opens) ?
+	0x2FEC2B16318A4051 //Traverse the Oceanview Motel
+	0x1864139D5AF9C051 //Explore the Investigations Sector x2
+	0x1C5065A615590051 //Activate the lights to defeat the creature
+	0x342F2F4201EDC051 //Explore the Investigations Sector x3
+	0x1C5065A615590051  //Speak with Langston on the intercom
+
+	//The Third Thing
+	0x1299EBD8D992C051 //Find Hartman in the Fra Mauro AWE area + Find Hartman in the Eagle Limited AWE area ?
+	0x146499859B788051 //dunno what objective name this has but it came after defeating hartman in the AWE transit bay
+	0x303B38B8A0AF4051 //Find Hartman in the Fra Mauro AWE area
+	0x18B8DF5CCE514051 //Activate the lights to defeat hartman
+	0x2BBFEED1A464C051 //Return to the Active Investigations
+	
+	//It's Happening Again
+	[7684] vars.latestObjectiveHash Old 21E364FE7E814051 - Current 1FA976B3B7C84051
+	0x1FA976B3B7C84051 //Traverse the Oceanview Motel
+	0x30B841738945C051 //finish motel
+	0x33673D226AC78051 //Defeat Hartman
+	0xC11D5D05BEEC051 //hartman defeated
+
 */
 
 
