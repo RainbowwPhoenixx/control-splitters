@@ -25,9 +25,21 @@ startup
 	settings.Add("allbosses_subsplits", false, "Subsplits for defeating bosses for all bosses category"); //todo..
 
 	settings.Add("dlc_support", false, "DLC Mission subsplits");
-	settings.Add("expeditions_dlc", false, "Expeditions", "dlc_support");
-	settings.Add("foundation_dlc", false, "The Foundation", "dlc_support");
-	settings.Add("awe_dlc", false, "AWE", "dlc_support");
+	settings.CurrentDefaultParent = "dlc_support";
+	settings.Add("expeditions_dlc", false, "Expeditions"); //also todo....
+	settings.Add("foundation_dlc", false, "The Foundation");
+	settings.Add("awe_dlc", false, "AWE");
+	settings.CurrentDefaultParent = null;
+
+	//so these are a bit of a hack as they just add a few more checks to the isLoading action
+	//I'm aware that livesplit can read/simulate the in-game timer so I may add that in the future (might be needed for expeditions even)
+	//leaving as is for now because of the game's timing rules
+	settings.Add("timer_ext", false, "Extended timer options (currently not allowed for submitted runs!!)");
+	settings.CurrentDefaultParent = "timer_ext";
+	settings.Add("time_out_pause_menu", false, "Time out pause menu screen (need a state for loadout menu");
+	settings.Add("time_out_photo_mode", false, "Time out photo mode screen");
+	settings.Add("time_out_cutscenes", false, "Time out cutscenes (any instance where playerControlEnabled is false)");
+	settings.CurrentDefaultParent = null;
 
 	settings.Add("debug_spew", false, "debug spew");
 }
@@ -158,9 +170,8 @@ init
 
 update
 {
-
-	vars.isLoading.Update(game);
 	vars.state.Update(game);
+	vars.isLoading.Update(game);
 
 	if (settings.StartEnabled || settings.SplitEnabled) {
 		vars.playerControlEnabled.Update(game);
@@ -199,12 +210,14 @@ start
 		{
 			if (settings["foundation_dlc"]) {
 				if (vars.latestObjectiveHash.Current != (UInt64)vars.latestObjectiveHash.Old && (UInt64)vars.latestObjectiveHash.Current == 0x381EE2B72AE34051) {
+					game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
+					game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
 					return true;
 				}
 			}
 			else if (settings["awe_dlc"]) {
-				if (!vars.isLoading.Current && vars.isLoading.Old) { //well obviously this works but causes a lot of false-starts, would be better if we were able to check the map being loaded, or active mission (displayed on HUD)
-					//game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
+				if (vars.state.Current == 0xE89FFD52 && vars.isLoading.Old && !vars.isLoading.Current) { //well obviously this works but causes a lot of false-starts, would be better if we were able to check the map being loaded, or active mission (displayed on HUD)
+					game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
 					game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
 					return true;
 				}
@@ -224,7 +237,34 @@ start
 
 isLoading
 {
-    return vars.isLoading.Current || vars.state.Current == 0x469239DF || vars.state.Current == 0xD439EBF1 || vars.state.Current == 0xB5C73550 || vars.state.Current == 0x63C25A55 || vars.state.Current == 0;
+	if (settings["timer_ext"]) {
+		if (settings["time_out_cutscenes"] && !vars.playerControlEnabled.Current)
+			return true;
+	}
+
+	switch ((UInt64)vars.state.Current)
+	{ //ugly code ik
+		case 0xEAE3EF29: //pause menu open (no state for loadout menu unfortunately...)
+			if (settings["dlc_support"] && settings["expeditions_dlc"]) //expeditions runs use the IGT timer
+				return true;
+			return (settings["timer_ext"] && settings["time_out_pause_menu"]);
+			
+		case 0x1CC77BAA: //in photo mode
+			if (settings["dlc_support"] && settings["expeditions_dlc"]) //expeditions runs use the IGT timer
+				return true;
+			return (settings["timer_ext"] && settings["time_out_photo_mode"]);
+
+		case 0x469239DF: //ClientStatePlatformServicesLogon
+		case 0xD439EBF1: //ClientStateStart
+		case 0xB5C73550: //ClientStateSplashScreen
+		case 0x63C25A55: //ClientStateMainMenu
+		case 0: //null state i guess
+			return true;
+		default:
+			break;
+	}
+
+	return vars.isLoading.Current;
 }
 
 shutdown
@@ -380,7 +420,7 @@ split
 						//THE FOUNDATION
 						case 0x119FA53302A50051: //Investigate the Nail or whatever 
 						//case 0x1B0C6E0946F10051: //Explore the Astral Plane Challenge x1?
-						case 0x34218EFD2D6DC051:  //Complete the Astral Plane Challenge
+						//case 0x34218EFD2D6DC051:  //Complete the Astral Plane Challenge
 							return true;
 						//THE NAIL
 						case 0x3A696D83C0970051: //Complete the Ritual in the Warehouse
@@ -396,9 +436,10 @@ split
 						case 0x6BE65486A6E4051: ////Complete the ritual in the Astral Plane (Foundation / Canyon Rim)
 							return true;
 						//THE PYRAMID
-						case 0x3E5E8A543CA30051: //Reach the bottom of the Nail (actually using this to finish The Nail split)
+						//case 0x3E5E8A543CA30051: //Reach the bottom of the Nail (actually using this to finish The Nail split)
 						case 0x1804BDFBEC60051: //Defeat marshall
 						case 0x16EC5F1B76790051: //Cleanse the Nail
+						case 0x8D52E0CDCD80051: //Return to crossroads
 							return true;
 						default:
 							break;
@@ -434,13 +475,22 @@ split
 		}
 	}
 
-	if (vars.isFoundationPatch && !vars.playerControlEnabled.Current && vars.playerControlEnabled.Old)
+	//if (settings["dlc_support"] && vars.isFoundationPatch && vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old)
+	if (settings["dlc_support"] && vars.isFoundationPatch && !vars.playerControlEnabled.Current && vars.playerControlEnabled.Old)
 	{ //auto end for dlcs ?
-
-		if ((UInt64)vars.latestObjectiveHash.Current == 0x33673D226AC78051 && settings["awe_dlc"])
-		{ //AWE
+		if (settings["foundation_dlc"] && (UInt64)vars.latestObjectiveHash.Current == 0x8D52E0CDCD80051) //Return to crossroads
+		{ //The Foundation
 			game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
 			return true;
+			//vars.autoEndNext = true;
+			//return false;
+		}
+		else if (settings["awe_dlc"] && (UInt64)vars.latestObjectiveHash.Current == 0x33673D226AC78051)
+		{ //AWE
+			//game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+			//return true;
+			vars.autoEndNext = true;
+			return false;
 		}
 	}
 
@@ -454,6 +504,11 @@ split
     0xB5C73550 = ClientStateSplashScreen
     0x63C25A55 = ClientStateMainMenu
     0xE89FFD52 = ClientStateInGame
+
+	//new state hashes (i do not know the names of these)
+	0x8F99476B = in fake credits (After Polaris)
+	0xEAE3EF29 = pause menu open
+	0x1CC77BAA = in photo mode
 */
 
 /*
