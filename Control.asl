@@ -431,7 +431,7 @@ split
 						case 0x38384013E28B0051: //site gamma + canyon rim (collapsed dept done)
 						
 						case 0x1D7253050CBA4051: //Reach the Canyon Rim + Complete the ritual in the Deep Cavern
-						case 0x2507179EE174C051: //Reach the Canyon Rim + Complete the ritual in the Deep Cavern (UNKNOWN WTF WTF WTF ?)
+						//case 0x2507179EE174C051: //Reach the Canyon Rim + Complete the ritual in the Deep Cavern (UNKNOWN WTF WTF WTF ?) (OK NO THIS ONE IS BAD NO THANK YOU LOL)
 						case 0x2A91E334C2250051: //Reach the Canyon Rim (deep cavern done)
 						case 0x6BE65486A6E4051: ////Complete the ritual in the Astral Plane (Foundation / Canyon Rim)
 							return true;
