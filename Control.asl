@@ -22,7 +22,7 @@ startup
 
 	settings.Add("intro_subsplits", false, "Intro & Unknown Caller subsplits");
 	
-	settings.Add("allbosses_subsplits", false, "Subsplits for defeating bosses for all bosses category"); //todo..
+	settings.Add("boss_subsplits", false, "Boss subsplits for all bosses category");
 
 	settings.Add("dlc_support", false, "DLC Mission subsplits");
 	settings.CurrentDefaultParent = "dlc_support";
@@ -390,6 +390,20 @@ split
 				case 0x22F74A8FE8D0C051:	//Merry Chase - Use evade to complete the Astral Plane challenge
 				//case 0x35CAA03DC7334051:	//Directorial Override - Find a way to fix the NSC Power Plant - skipped with slidey
 				//case 0x152DB5CD65554051:	//Directorial Override - Speak with Emily
+					return true;
+				default:
+					break;
+			}
+		}
+
+		if (settings["boss_subsplits"])
+		{
+			switch ((UInt64)vars.latestObjectiveHash.Current)
+			{
+				case 0x8F00E1590A64051: //tommassi
+				case 0xEA86841EC930051: //former 2
+				case 0x1F39DF767722C051: //tommassi 2
+				case 0x33E8A13A04098051: //mold-1
 					return true;
 				default:
 					break;
