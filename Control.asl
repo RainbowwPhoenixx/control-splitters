@@ -20,15 +20,20 @@ startup
 		p.FreeMemory((IntPtr)vars.objectiveHookBytecodeCave);
     });
 
-	settings.Add("intro_subsplits", false, "Intro & Unknown Caller subsplits");
-	
-	settings.Add("boss_subsplits", false, "Boss subsplits for all bosses category");
+	settings.Add("intro_subsplits", false, "Detailed subsplits for first 3 missions");
+	settings.CurrentDefaultParent = "intro_subsplits";
+		settings.Add("M01_subsplits", false, "Welcome to the Oldest House (Service Weapon, Astral Plane, & Cleanse Central)");
+		settings.Add("M02_subsplits", false, "Unknown Caller (Dead Letters, Floppy Disk, Launch Trial, Mail Room, Motel, & Hotline)");
+		settings.Add("M03_subsplits", false, "Directorial Override/Merry Chase (Ventilation Skip aka split when starting Merry Chase)");
+	settings.CurrentDefaultParent = null;
+
+	settings.Add("boss_subsplits", false, "Boss fight subsplits for all bosses category");
 
 	settings.Add("dlc_support", false, "DLC Mission subsplits");
 	settings.CurrentDefaultParent = "dlc_support";
-	settings.Add("expeditions_dlc", false, "Expeditions"); //also todo....
-	settings.Add("foundation_dlc", false, "The Foundation");
-	settings.Add("awe_dlc", false, "AWE");
+		settings.Add("expeditions_dlc", false, "Expeditions"); //also todo....
+		settings.Add("foundation_dlc", false, "The Foundation");
+		settings.Add("awe_dlc", false, "AWE");
 	settings.CurrentDefaultParent = null;
 
 	//so these are a bit of a hack as they just add a few more checks to the isLoading action
@@ -36,12 +41,13 @@ startup
 	//leaving as is for now because of the game's timing rules
 	settings.Add("timer_ext", false, "Extended timer options (currently not allowed for submitted runs!!)");
 	settings.CurrentDefaultParent = "timer_ext";
-	settings.Add("time_out_pause_menu", false, "Time out pause menu screen (need a state for loadout menu");
-	settings.Add("time_out_photo_mode", false, "Time out photo mode screen");
-	settings.Add("time_out_cutscenes", false, "Time out cutscenes (any instance where playerControlEnabled is false)");
+		settings.Add("time_out_pause_menu", false, "Time out pause menu screen (need a state for loadout menu");
+		settings.Add("time_out_photo_mode", false, "Time out photo mode screen");
+		settings.Add("time_out_cutscenes", false, "Time out cutscenes (any instance where playerControlEnabled is false)");
 	settings.CurrentDefaultParent = null;
 
 	settings.Add("debug_spew", false, "debug spew");
+	//print("startup: refreshRate " + refreshRate.ToString());
 }
 
 init
@@ -190,8 +196,9 @@ update
 	}
 
 	//delete me
-	if (settings["debug_spew"]) {
+	if (settings["debug_spew"]) { //spits the latest objectiveHash into dbgView
 		print("vars.latestObjectiveHash " + ((IntPtr)vars.latestObjectiveHash.Current).ToString("X"));
+		//print("refreshRate: " refreshRate.ToString());
 	}
 }
 
@@ -292,7 +299,8 @@ split
 	if (vars.autoEndNext)
 	{
 		if (refreshRate == 1) {
-			refreshRate = 60;
+			//refreshRate = 60;
+			refreshRate = 66.6666666666667; //ok so APPARENTLY it actually defaults to this value on startup.. lol
 			return false;
 		}
 
@@ -368,14 +376,16 @@ split
 			switch ((UInt64)vars.latestObjectiveHash.Current)
 			{ // maybe this should be checking against the old objectiveHash as well, incase this causes any random splits down the line....
 
-				case 0x80C6DA414868051:		//Investigate the noise in the Director's Office (reaching office) MAYBE REMOVE THIS ONE
+				//case 0x80C6DA414868051:		//Investigate the noise in the Director's Office (reaching office) MAYBE REMOVE THIS ONE
 				case 0x29FECD336DD44051:	//Welcome to the Oldest House - Follow the Board's instructions to complete the Astral Plane Challenge (astral plane)
 				case 0x10469758BD9F0051:	//Welcome to the Oldest House - Proceed Further Into the Bureau (leaving astral plane)
 				case 0x3132CD8588D24051:	//Welcome to the Oldest House - Cleanse the Control Point
-				//case 0x318295969DC70051:	//Welcome to the Oldest House - Speak with the voice on the Safe Room Intercom 
-				//case 0x32330AEED172C051:	//Welcome to the Oldest House - Cleanse the Hiss-corrupted Agent
-				case 0x3774770F0180051:		//Welcome to the Oldest House - Speak with Emily Pope
-				//case 0x51DD0111FFB0051:		//Welcome to the Oldest House/Unknown Caller - Enter the Communications Dept. to find the Hotline
+				////case 0x318295969DC70051:	//Welcome to the Oldest House - Speak with the voice on the Safe Room Intercom 
+				////case 0x32330AEED172C051:	//Welcome to the Oldest House - Cleanse the Hiss-corrupted Agent
+				//case 0x3774770F0180051:		//Welcome to the Oldest House - Speak with Emily Pope
+				////case 0x51DD0111FFB0051:		//Welcome to the Oldest House/Unknown Caller - Enter the Communications Dept. to find the Hotline
+					return (bool)settings["M01_subsplits"];
+
 				case 0x367A9559D4A9C051:	//Unknown Caller - Navigate through the Communications Dept. (cleansed dead letters cp)
 				//case 0x1E47AA743A050051:	//Unknown Caller - Reach the Object of Power to Cleanse it
 				case 0x13607262FE258051:	//Unknown Caller - Use Launch to complete the Astral Plane challenge
@@ -386,10 +396,13 @@ split
 				case 0x16BDA8576AB68051:	//Unknown Caller - Pick up the Hotline
 				//case 0xE8B59972B254051:		//Unknown Caller - Complete the Astral Plane Challenge
 				case 0x21D1ECA6BEAA4051:	//Unknown Caller - Speak with Emily
+					return (bool)settings["M02_subsplits"];
+
 				//case 0x2CA177693EB94051:	//Directorial Override - Find Ahti the janitor
 				case 0x22F74A8FE8D0C051:	//Merry Chase - Use evade to complete the Astral Plane challenge
 				//case 0x35CAA03DC7334051:	//Directorial Override - Find a way to fix the NSC Power Plant - skipped with slidey
 				//case 0x152DB5CD65554051:	//Directorial Override - Speak with Emily
+					return (bool)settings["M03_subsplits"];
 					return true;
 				default:
 					break;
@@ -397,13 +410,17 @@ split
 		}
 
 		if (settings["boss_subsplits"])
-		{
+		{ //all of these might be really bad because bureau alerts.. we need to figure out how to filter those objective hashes out
 			switch ((UInt64)vars.latestObjectiveHash.Current)
 			{
-				case 0x8F00E1590A64051: //tommassi
+				case 0x8F00E1590A64051: //tommasi
+				case 0xB3B1007E000C051: //salvador (Use Levitate to Complete the Astral Plane Challenge blah blah)
+				case 0x2CF792EBAC1EC051: //fisrt set of runaways complete 
 				case 0xEA86841EC930051: //former 2
-				case 0x1F39DF767722C051: //tommassi 2
+				case 0x1F39DF767722C051: //tommasi 2
 				case 0x33E8A13A04098051: //mold-1
+				case 0x31689A1F87650051: //Parapsych CP in OBC
+				case 0x48DA8D73AF78051: //golden copy started
 					return true;
 				default:
 					break;
