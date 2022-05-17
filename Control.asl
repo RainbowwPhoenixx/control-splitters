@@ -24,7 +24,8 @@ startup
 	settings.CurrentDefaultParent = "intro_subsplits";
 		settings.Add("M01_subsplits", false, "Welcome to the Oldest House (Service Weapon, Astral Plane, & Cleanse Central)");
 		settings.Add("M02_subsplits", false, "Unknown Caller (Dead Letters, Floppy Disk, Launch Trial, Mail Room, Motel, & Hotline)");
-		settings.Add("M03_subsplits", false, "Directorial Override/Merry Chase (Ventilation Skip aka split when starting Merry Chase)");
+		//settings.Add("M03_subsplits", false, "Directorial Override/Merry Chase (Ventilation Skip aka split when starting Merry Chase)");
+		settings.Add("M04_subsplits", false, "Old Boys Club Parapsychology subsplit");
 	settings.CurrentDefaultParent = null;
 
 	settings.Add("boss_subsplits", false, "Boss fight subsplits for all bosses category");
@@ -299,7 +300,6 @@ split
 	if (vars.autoEndNext)
 	{
 		if (refreshRate == 1) {
-			//refreshRate = 60;
 			refreshRate = 66.6666666666667; //ok so APPARENTLY it actually defaults to this value on startup.. lol
 			return false;
 		}
@@ -375,35 +375,26 @@ split
 
 			switch ((UInt64)vars.latestObjectiveHash.Current)
 			{ // maybe this should be checking against the old objectiveHash as well, incase this causes any random splits down the line....
-
-				//case 0x80C6DA414868051:		//Investigate the noise in the Director's Office (reaching office) MAYBE REMOVE THIS ONE
 				case 0x29FECD336DD44051:	//Welcome to the Oldest House - Follow the Board's instructions to complete the Astral Plane Challenge (astral plane)
 				case 0x10469758BD9F0051:	//Welcome to the Oldest House - Proceed Further Into the Bureau (leaving astral plane)
 				case 0x3132CD8588D24051:	//Welcome to the Oldest House - Cleanse the Control Point
-				////case 0x318295969DC70051:	//Welcome to the Oldest House - Speak with the voice on the Safe Room Intercom 
-				////case 0x32330AEED172C051:	//Welcome to the Oldest House - Cleanse the Hiss-corrupted Agent
-				//case 0x3774770F0180051:		//Welcome to the Oldest House - Speak with Emily Pope
-				////case 0x51DD0111FFB0051:		//Welcome to the Oldest House/Unknown Caller - Enter the Communications Dept. to find the Hotline
 					return (bool)settings["M01_subsplits"];
 
 				case 0x367A9559D4A9C051:	//Unknown Caller - Navigate through the Communications Dept. (cleansed dead letters cp)
-				//case 0x1E47AA743A050051:	//Unknown Caller - Reach the Object of Power to Cleanse it
 				case 0x13607262FE258051:	//Unknown Caller - Use Launch to complete the Astral Plane challenge
 				case 0x14D67242479FC051:	//Unknown Caller - Proceed through the Communications Dept.
 				//everything below might be skippable in the future
-				//case 0x3D50D4AC7F740051:	//Unknown Caller - Find the Hotline Object of Power
 				case 0x35806926DF63C051:	//Unknown Caller - Traverse the Oceanview Motel
 				case 0x16BDA8576AB68051:	//Unknown Caller - Pick up the Hotline
-				//case 0xE8B59972B254051:		//Unknown Caller - Complete the Astral Plane Challenge
 				case 0x21D1ECA6BEAA4051:	//Unknown Caller - Speak with Emily
 					return (bool)settings["M02_subsplits"];
 
 				//case 0x2CA177693EB94051:	//Directorial Override - Find Ahti the janitor
-				case 0x22F74A8FE8D0C051:	//Merry Chase - Use evade to complete the Astral Plane challenge
-				//case 0x35CAA03DC7334051:	//Directorial Override - Find a way to fix the NSC Power Plant - skipped with slidey
+				////case 0x22F74A8FE8D0C051:	//Merry Chase - Use evade to complete the Astral Plane challenge
 				//case 0x152DB5CD65554051:	//Directorial Override - Speak with Emily
-					return (bool)settings["M03_subsplits"];
-					return true;
+				//	return (bool)settings["M03_subsplits"];
+				case 0x31689A1F87650051: //Parapsych CP in OBC
+					return (bool)settings["M04_subsplits"];
 				default:
 					break;
 			}
@@ -419,8 +410,6 @@ split
 				case 0xEA86841EC930051: //former 2
 				case 0x1F39DF767722C051: //tommasi 2
 				case 0x33E8A13A04098051: //mold-1
-				case 0x31689A1F87650051: //Parapsych CP in OBC
-				case 0x48DA8D73AF78051: //golden copy started
 					return true;
 				default:
 					break;
