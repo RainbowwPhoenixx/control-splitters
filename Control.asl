@@ -335,7 +335,7 @@ split
 		if (missionGID == 0x529729E) { //special case for "Endgame" mission, to stop it from splitting on the credits
 			return false;
 		}
-		else if (missionGID == 0x1F0E75B7) { //another special case for Self Reflection, since skips have been found that allow completing the mission without starting it (for All Bosses I guess)
+		else if (missionGID == 0x1F0E75B7 || missionGID == 0x7D958C2) { //another special case for Self Reflection & Captive Audience, since skips have been found that allow completing the mission without starting it
 			return true;
 		}
 
