@@ -1,4 +1,4 @@
-//By MrLette, based off Wangler auto-start/load remover. Anyone is free to host, fork or modify the following code.
+//By MrLette & Ashley93oBTW, based off Wangler auto-start/load remover. Anyone is free to host, fork or modify the following code.
 
 state("Control_DX11", "DX11") { }
 state("Control_DX12", "DX12") { }
@@ -208,6 +208,14 @@ exit
     timer.IsGameTimePaused = true;
 }
 
+onStart
+{ //clear these now so our first subsplit won't get ignored
+	if (vars.isMissionCompleted.Current)
+		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
+	if (vars.latestObjectiveHash.Current != 0)
+		game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+}
+
 start
 {
 	if (settings["dlc_support"])
@@ -218,15 +226,11 @@ start
 		{
 			if (settings["foundation_dlc"]) {
 				if (vars.latestObjectiveHash.Current != (UInt64)vars.latestObjectiveHash.Old && (UInt64)vars.latestObjectiveHash.Current == 0x381EE2B72AE34051) {
-					game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
-					game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
 					return true;
 				}
 			}
 			else if (settings["awe_dlc"]) {
 				if (vars.state.Current == 0xE89FFD52 && vars.isLoading.Old && !vars.isLoading.Current) { //well obviously this works but causes a lot of false-starts, would be better if we were able to check the map being loaded, or active mission (displayed on HUD)
-					game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
-					game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
 					return true;
 				}
 			}
@@ -234,9 +238,6 @@ start
 	}
 	else if (vars.state.Current == 0xE89FFD52 && !vars.playerControlEnabled.Old && vars.playerControlEnabled.Current)
 	{
-		//clear these now so our first subsplit doesn't get ignored
-		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
-		game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
 		return true;
 	}
 
