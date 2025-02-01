@@ -218,7 +218,7 @@ onStart
 
 start
 {
-	if (settings["dlc_support"])
+	if (settings["dlc_support"] && !settings["boss_subsplits"])
 	{//dlc autostart mayb..?
 		if (settings["expeditions_dlc"]) { //add later
 		}
@@ -254,12 +254,12 @@ isLoading
 	switch ((UInt64)vars.state.Current)
 	{ //ugly code ik
 		case 0xEAE3EF29: //pause menu open (no state for loadout menu unfortunately...)
-			if (settings["dlc_support"] && settings["expeditions_dlc"]) //expeditions runs use the IGT timer
+			if (settings["dlc_support"] && settings["expeditions_dlc"] && !settings["boss_subsplits"]) //expeditions runs use the IGT timer
 				return true;
 			return (settings["timer_ext"] && settings["time_out_pause_menu"]);
 			
 		case 0x1CC77BAA: //in photo mode
-			if (settings["dlc_support"] && settings["expeditions_dlc"]) //expeditions runs use the IGT timer
+			if (settings["dlc_support"] && settings["expeditions_dlc"] && !settings["boss_subsplits"]) //expeditions runs use the IGT timer
 				return true;
 			return (settings["timer_ext"] && settings["time_out_photo_mode"]);
 
