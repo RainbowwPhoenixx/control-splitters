@@ -341,6 +341,9 @@ split
 		else if (missionGID == 0x1F0E75B7 || missionGID == 0x7D958C2) { //another special case for Self Reflection & Captive Audience, since skips have been found that allow completing the mission without starting it
 			return true;
 		}
+		else if (missionGID == 0xCFE8F15 && vars.state.Current == 0x1FCEFA6D) { //maybe blacklist Put a Record on, except in hundo? It's mission GID is 0x31EC1E03
+			return false; //stop expeditions from splitting again on the loading screen, honestly should just not split on the loading screen at all
+		}
 
 		int i = 0;
 		while (game.ReadValue<int>(missionArray + 4) != missionGID) {
