@@ -409,7 +409,8 @@ split
 			switch ((UInt64)vars.latestObjectiveHash.Current)
 			{
 				case 0x8F00E1590A64051: //tommasi
-				case 0xB3B1007E000C051: //salvador (Use Levitate to Complete the Astral Plane Challenge blah blah)
+				case 0xB3B1007E000C051: //salvador, this splits after the benicoff TV cutscene when running inbounds
+				case 0xBB37775B9EE4051: //cleanse the TV, splits on salvador for inbounds
 				case 0x2CF792EBAC1EC051: //fisrt set of runaways complete 
 				case 0xEA86841EC930051: //former 2
 				case 0x1F39DF767722C051: //tommasi 2
