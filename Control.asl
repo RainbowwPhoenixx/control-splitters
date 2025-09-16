@@ -173,6 +173,7 @@ init
 	vars.sm_instances = sm_instancesptr + 4 + sm_instances_offset;
 
 	vars.autoEndNext = false; //probs need to clear this elsewhere too
+	vars.islandSplit = false; //basically tracks if we've already split on objective 0x2E3EFDAF396D8051
 }
 
 update
@@ -219,10 +220,12 @@ onStart
 start
 {
 	if (settings["dlc_support"] && !settings["boss_subsplits"])
-	{//dlc autostart mayb..?
+	{//dlc autostart
 		if (settings["expeditions_dlc"]) {
-			if (vars.state.Old != vars.state.Current && vars.state.Current == 0xE89FFD52 && vars.playerControlEnabled.Current && (UInt64)vars.latestObjectiveHash.Current == 0x2E3EFDAF396D8051) //not sure about this objective hash, if this doesn't work for everyone then just remove these
+			if (vars.state.Old != vars.state.Current && vars.state.Current == 0xE89FFD52 && vars.playerControlEnabled.Current && (UInt64)vars.latestObjectiveHash.Current == 0x2E3EFDAF396D8051) {//not sure about this objective hash, if this doesn't work for everyone then just remove these
+				vars.islandSplit = true;
 				return true;
+			}
 		}
 		else if (vars.isFoundationPatch)
 		{
@@ -232,7 +235,7 @@ start
 				}
 			}
 			else if (settings["awe_dlc"]) {
-				if (vars.state.Current == 0xE89FFD52 && vars.isLoading.Old && !vars.isLoading.Current) { //well obviously this works but causes a lot of false-starts, would be better if we were able to check the map being loaded, or active mission (displayed on HUD)
+				if (vars.state.Current == 0xE89FFD52 && vars.isLoading.Old && !vars.isLoading.Current) { //well obviously this works but causes a lot of false-starts, would be better if we were able to check the map being loaded, or active mission (displayed on HUD), maybe could hack another solution by changing what the timer starts at
 					return true;
 				}
 			}
@@ -240,6 +243,7 @@ start
 	}
 	else if (vars.state.Current == 0xE89FFD52 && !vars.playerControlEnabled.Old && vars.playerControlEnabled.Current)
 	{
+		vars.islandSplit = false;
 		return true;
 	}
 
@@ -410,7 +414,7 @@ split
 			{
 				case 0x8F00E1590A64051: //tommasi
 				case 0xB3B1007E000C051: //salvador, this splits after the benicoff TV cutscene when running inbounds
-				case 0xBB37775B9EE4051: //cleanse the TV, splits on salvador for inbounds
+				case 0xBB37775B9EE4051: //cleanse the TV, splits after salvador fight for inbounds
 				case 0x2CF792EBAC1EC051: //fisrt set of runaways complete 
 				case 0xEA86841EC930051: //former 2
 				case 0x1F39DF767722C051: //tommasi 2
@@ -428,8 +432,13 @@ split
 			{
 				switch ((UInt64)vars.latestObjectiveHash.Current)
 				{
+					case 0x2E3EFDAF396D8051: //Return to Island
+						if (settings["boss_subsplits"] && !vars.islandSplit) { //hack, split on this so we have a clean start of expeditions DLC for all bosses + DLC runs
+							vars.islandSplit = true; //if this is problematic, copy the conditions from the start code above
+							return true; 
+						}
+						return false;
 					case 0x2BBFF0E51D300051: //Cleanse the 3 broadcasting plates
-					//case 0x2E3EFDAF396D8051: //Return to Island
 					//case 0x3013126E67E9C051: //Retrieve lost Specimen Data
 					case 0x1CEF4669140E8051: //Eliminate waves of Hiss
 					case 0x1861BE4282B40051: //Recover the biometric logs from the dead Rangers
@@ -444,7 +453,6 @@ split
 			//these probably totally break inbounds or with an alternate route/order
 			if (vars.isFoundationPatch)
 			{
-				
 				if (settings["foundation_dlc"])
 				{
 					switch ((UInt64)vars.latestObjectiveHash.Current)
@@ -461,7 +469,6 @@ split
 						case 0x216E530535514051: //Collapsed department done ig UNKNOWN WTF WTF WTF
 						case 0x195619844FFE0051:  //Collapsed department done ? (Complete ritual in the Deep Cavern is left)
 						case 0x38384013E28B0051: //site gamma + canyon rim (collapsed dept done)
-						
 						case 0x1D7253050CBA4051: //Reach the Canyon Rim + Complete the ritual in the Deep Cavern
 						//case 0x2507179EE174C051: //Reach the Canyon Rim + Complete the ritual in the Deep Cavern (UNKNOWN WTF WTF WTF ?) (OK NO THIS ONE IS BAD NO THANK YOU LOL)
 						case 0x2A91E334C2250051: //Reach the Canyon Rim (deep cavern done)
