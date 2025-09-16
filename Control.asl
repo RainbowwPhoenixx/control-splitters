@@ -413,7 +413,8 @@ split
 				case 0x2CF792EBAC1EC051: //fisrt set of runaways complete 
 				case 0xEA86841EC930051: //former 2
 				case 0x1F39DF767722C051: //tommasi 2
-				case 0x33E8A13A04098051: //mold-1
+				case 0x33E8A13A04098051: //mold-1, this splits when picking up the type B sample near the toilets when running inbounds
+				case 0x1779C7275DDCC051: //mold-1, when doing the errands normally
 					return true;
 				default:
 					break;
