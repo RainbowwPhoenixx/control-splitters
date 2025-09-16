@@ -220,7 +220,10 @@ start
 {
 	if (settings["dlc_support"] && !settings["boss_subsplits"])
 	{//dlc autostart mayb..?
-		if (settings["expeditions_dlc"]) { //add later
+		if (settings["expeditions_dlc"]) {
+			if (vars.state.Old != vars.state.Current && vars.state.Current == 0xE89FFD52 && vars.playerControlEnabled.Current && !vars.isLoading.Current &&
+				((UInt64)vars.latestObjectiveHash.Current == 0xE09940478A58051 || (UInt64)vars.latestObjectiveHash.Current == 0x1CEF4669140E8051)) //not sure about these objective hashes, if this doesn't work for everyone then just remove these
+				return true;
 		}
 		else if (vars.isFoundationPatch)
 		{
@@ -417,16 +420,22 @@ split
 
 		if (settings["dlc_support"])
 		{
-			/*if (settings["expeditions_dlc"])
+			if (settings["expeditions_dlc"])
 			{
 				switch ((UInt64)vars.latestObjectiveHash.Current)
 				{
-					case 3:
+					case 0x2BBFF0E51D300051: //Cleanse the 3 broadcasting plates
+					//case 0x2E3EFDAF396D8051: //Return to Island
+					//case 0x3013126E67E9C051: //Retrieve lost Specimen Data
+					case 0x1CEF4669140E8051: //Eliminate waves of Hiss
+					case 0x1861BE4282B40051: //Recover the biometric logs from the dead Rangers
+					case 0x2142FEA67B640051: //Burn ths Hiss-corrupted material
+					//case 0x237E253F10058051: //Kill Distorted Tourist
+					//case 0x23067B6591BE0051: //Take your Reward
 						return true;
-					default:
-						break;
+					default: break;
 				}
-			}*/
+			}
 
 			//these probably totally break inbounds or with an alternate route/order
 			if (vars.isFoundationPatch)
@@ -460,8 +469,7 @@ split
 						case 0x16EC5F1B76790051: //Cleanse the Nail
 						case 0x8D52E0CDCD80051: //Return to crossroads
 							return true;
-						default:
-							break;
+						default: break;
 					}
 				}
 
@@ -486,8 +494,7 @@ split
 						case 0x30B841738945C051: //motel finished
 						case 0x33673D226AC78051: //Defeat Hartman
 							return true;
-						default:
-							break;
+						default: break;
 					}
 				}
 			}
