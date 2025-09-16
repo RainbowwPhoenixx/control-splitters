@@ -221,8 +221,7 @@ start
 	if (settings["dlc_support"] && !settings["boss_subsplits"])
 	{//dlc autostart mayb..?
 		if (settings["expeditions_dlc"]) {
-			if (vars.state.Old != vars.state.Current && vars.state.Current == 0xE89FFD52 && vars.playerControlEnabled.Current && !vars.isLoading.Current &&
-				((UInt64)vars.latestObjectiveHash.Current == 0xE09940478A58051 || (UInt64)vars.latestObjectiveHash.Current == 0x1CEF4669140E8051)) //not sure about these objective hashes, if this doesn't work for everyone then just remove these
+			if (vars.state.Old != vars.state.Current && vars.state.Current == 0xE89FFD52 && vars.playerControlEnabled.Current && (UInt64)vars.latestObjectiveHash.Current == 0x2E3EFDAF396D8051) //not sure about this objective hash, if this doesn't work for everyone then just remove these
 				return true;
 		}
 		else if (vars.isFoundationPatch)
