@@ -32,7 +32,7 @@ startup
 
 	settings.Add("dlc_support", false, "DLC Mission subsplits");
 	settings.CurrentDefaultParent = "dlc_support";
-		settings.Add("expeditions_dlc", false, "Expeditions"); //also todo....
+		settings.Add("expeditions_dlc", false, "Expeditions");
 		settings.Add("foundation_dlc", false, "The Foundation");
 		settings.Add("awe_dlc", false, "AWE");
 	settings.CurrentDefaultParent = null;
