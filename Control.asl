@@ -68,7 +68,7 @@ init
 
 	var rlModule = modules.Single(m => m.ModuleName == rlStr);
 	var rlScanner = new SignatureScanner(game, rlModule.BaseAddress, rlModule.ModuleMemorySize);
-	
+
     var offset = game.ReadValue<int>(gameScan);
     var imOffset = game.ReadValue<int>(imScan);
     var loadingOffset = game.ReadValue<int>(gameScan + 10);
@@ -94,14 +94,14 @@ init
 	vars.completeMissionFunctionAddress = (IntPtr)vars.completeMissionFunctionAddress;
 	var jmpInstructionSize = 12; //x64 creates 12 bytes instructions, 10 bytes to mov the addr to rax then 2 bytes for jmp'ing to rax
 	var overridenBytesForTrampoline = 14; //See the 4 original instructions below 
-	
+
 	//Original code copied (comment based on 0.96) :
 	//	0x49 ,0x8B, 0xCE, 							mov rcx,r14
 	//	0x84, 0xC0,       							test al,al
 	//	0x74, 0x54,		  							je Control_DX11.exe+52474A
 	//	0x48, 0x8D, 0x95, 0xC0, 0x05, 0x00, 0x00 	lea rdx,[rbp+000005C0]
 	vars.originalMissionCompleteFunctionCode = game.ReadBytes((IntPtr)vars.completeMissionFunctionAddress, overridenBytesForTrampoline);
-	
+
 	//Bytecode that executes the code overrided by the trampoline jmp + sets a boolean to true and stores mission GID in our newly allocated memory when called
 	var missionCompleteHookBytecode = new List<byte> {0x58}; //pop rax (restore saved rax)
 	missionCompleteHookBytecode.AddRange((byte[])vars.originalMissionCompleteFunctionCode); //Adding original code
@@ -125,7 +125,7 @@ init
 	//Control_DX11.exe+3EFD93 - 45 0FB6 F9            - movzx r15d,r9l
 
 	vars.originalObjectiveCompleteFunctionCode = game.ReadBytes((IntPtr)vars.completeObjectiveFunctionAddress, overridenBytesForObjectiveTrampoline);
-	
+
 	//Bytecode that executes the code overrided by the trampoline jmp + stores latest objective hash in our newly allocated memory when called
 	var objectiveCompleteHookBytecode = new List<byte>((byte[])vars.originalObjectiveCompleteFunctionCode);
 	objectiveCompleteHookBytecode.AddRange(new byte[] {0x49, 0x8b, 0x38}); //mov  rdi,QWORD PTR [r8]
@@ -144,17 +144,17 @@ init
 		game.WriteJumpInstruction((IntPtr)vars.hookBytecodeCave + missionCompleteHookBytecode.Count - (jmpInstructionSize + 5), (IntPtr)vars.completeMissionFunctionAddress + 0x54 + 7); //Set jump back to outside if on original function (je executed)
 		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00}); //Make sure our boolean starts set to false
 		game.WriteBytes((IntPtr)vars.hookBytecodeCave + 7, new byte[] {0x23}); //Patching the je offset from original code to point to our second jmp
-		
+
 		//Placing trampoline on original function
 		game.WriteBytes((IntPtr)vars.completeMissionFunctionAddress, new byte[] {0x50}); //push rax
 		game.WriteJumpInstruction((IntPtr)vars.completeMissionFunctionAddress + 1, (IntPtr)vars.hookBytecodeCave); //injecting the 12 bytes trampoline jmp to our hook codecave
 		game.WriteBytes((IntPtr)vars.completeMissionFunctionAddress + 1 + jmpInstructionSize, new byte[] {0x90}); //nop the last byte
-		
+
 		//Writing hook function into memory
 		game.WriteBytes((IntPtr)vars.objectiveHookBytecodeCave, objectiveCompleteHookBytecode.ToArray());
 		game.WriteJumpInstruction((IntPtr)vars.objectiveHookBytecodeCave + objectiveCompleteHookBytecode.Count - (jmpInstructionSize + 8), (IntPtr)vars.completeObjectiveFunctionAddress + overridenBytesForObjectiveTrampoline); //Set jump back to outside if on original function
 		game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-		
+
 		//Placing trampoline on original function
 		game.WriteJumpInstruction((IntPtr)vars.completeObjectiveFunctionAddress, (IntPtr)vars.objectiveHookBytecodeCave); //injecting the 12 bytes trampoline jmp to our hook codecave
 	}
@@ -167,7 +167,7 @@ init
 	finally {
 		game.Resume();
 	}
-	
+
 	var sm_instancesptr = rlScanner.Scan((SigScanTarget)vars.getInstanceSig);
 	var sm_instances_offset = game.ReadValue<int>(sm_instancesptr);
 	vars.sm_instances = sm_instancesptr + 4 + sm_instances_offset;
@@ -183,12 +183,12 @@ update
 	if (settings.StartEnabled || settings.SplitEnabled) {
 		vars.playerControlEnabled.Update(game);
 	}
-	
+
 	if (settings.SplitEnabled) {
 		vars.isMissionCompleted.Update(game);
 		vars.latestObjectiveHash.Update(game);
 	}
-	
+
 	if (vars.state.Current != vars.state.Old || vars.playerControlEnabled.Current != vars.playerControlEnabled.Old || vars.isLoading.Current != vars.isLoading.Old || vars.isMissionCompleted.Current != vars.isMissionCompleted.Old || vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old) {
 		print("vars.state " + ((UInt64)vars.state.Current).ToString("X") + " - vars.playerControlEnabled " + (vars.playerControlEnabled.Current).ToString() + " - vars.isLoading " + (vars.isLoading.Current).ToString() + " - vars.isMissionCompleted " + (vars.isMissionCompleted.Current).ToString());
 	}
@@ -257,7 +257,7 @@ isLoading
 			if (settings["dlc_support"] && settings["expeditions_dlc"] && !settings["boss_subsplits"]) //expeditions runs use the IGT timer
 				return true;
 			return (settings["timer_ext"] && settings["time_out_pause_menu"]);
-			
+
 		case 0x1CC77BAA: //in photo mode
 			if (settings["dlc_support"] && settings["expeditions_dlc"] && !settings["boss_subsplits"]) //expeditions runs use the IGT timer
 				return true;
@@ -287,7 +287,6 @@ shutdown
 
 split
 {
-
 	if (vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old)
 	{
 		if (!vars.autoEndNext && vars.latestObjectiveHash.Current == 0x1C34375B7D39C051 && vars.latestObjectiveHash.Old != 0 /*== 0x2A351C86227EC051*/) { //can't check for that because bureau alerts...
@@ -319,7 +318,7 @@ split
 		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
 		//This whole RPM heavy part has to be done here rather than init as I witnessed some pointer changes during gameplay.
 		//Some cache system could be implemented with a MemoryWatcher, but the following code should be fast enough on any computer able to run that game anyway.
-	
+
 		//Here we are looking into the global sm_instances pool to find the mission manager component, from which we will be able to get the list of all game missions
 		var componentStateArray = game.ReadValue<IntPtr>(game.ReadValue<IntPtr>((IntPtr)vars.sm_instances + 8));
 		while (game.ReadValue<int>(componentStateArray + 8) != 0x6871eafd) //This is some kind of checksum equal to "MissionManagerSingletonComponentState"
@@ -328,10 +327,10 @@ split
 		var missionArrayOffset = game.ReadValue<int>(game.ReadValue<IntPtr>(missionManagerSingletonComponentState + 8) + 20);
 		var missionArray = game.ReadValue<IntPtr>(missionManagerSingletonComponentState + missionArrayOffset + 88);
 		var missionArraySize = game.ReadValue<int>(missionManagerSingletonComponentState + missionArrayOffset + 96);
-		
+
 		//Here we iterate into our mission array and try to match the mission globalID with the one we got from the mission completion hook
 		var missionGID = game.ReadValue<int>((IntPtr)vars.isMissionCompletedAddress + 1);
-		
+
 		print("missionGID " + ((int)missionGID).ToString("X") + " - missionArraySize " + missionArraySize.ToString());
 		if (missionGID == 0x529729E) { //special case for "Endgame" mission, to stop it from splitting on the credits
 			return false;
@@ -359,13 +358,12 @@ split
 		}
 		return true;
 	}
-	else if (vars.isMissionCompleted.Current && vars.isMissionCompleted.Old) { //This happens at least once at the end of a run, because split isn't called (we end on dylan intercation) but mission still complete when getting back to bureau, our boolean will be stuck on true and break the autosplitter until game restart.
+	else if (vars.isMissionCompleted.Current && vars.isMissionCompleted.Old) { //This happens at least once at the end of a run, because split isn't called (we end on dylan interaction) but mission still complete when getting back to bureau, our boolean will be stuck on true and break the autosplitter until game restart.
 		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
 	}
 
 	if (vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old)
 	{
-
 		if (settings["intro_subsplits"])
 		{
 			/*
@@ -561,7 +559,7 @@ split
 	0x303B38B8A0AF4051 //Find Hartman in the Fra Mauro AWE area
 	0x18B8DF5CCE514051 //Activate the lights to defeat hartman
 	0x2BBFEED1A464C051 //Return to the Active Investigations
-	
+
 	//It's Happening Again
 	[7684] vars.latestObjectiveHash Old 21E364FE7E814051 - Current 1FA976B3B7C84051
 	0x1FA976B3B7C84051 //Traverse the Oceanview Motel
@@ -570,5 +568,4 @@ split
 	0xC11D5D05BEEC051 //hartman defeated
 
 */
-
 
