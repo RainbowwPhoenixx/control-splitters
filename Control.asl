@@ -172,7 +172,7 @@ init
 	var sm_instances_offset = game.ReadValue<int>(sm_instancesptr);
 	vars.sm_instances = sm_instancesptr + 4 + sm_instances_offset;
 
-	vars.autoEndNext = false; //probs need to clear this elsewhere too
+	vars.autoEndNext = false;
 	vars.islandSplit = false; //basically tracks if we've already split on objective 0x2E3EFDAF396D8051
 }
 
@@ -215,6 +215,9 @@ onStart
 		game.WriteBytes((IntPtr)vars.isMissionCompletedAddress, new byte[] {0x00});
 	if (vars.latestObjectiveHash.Current != 0)
 		game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+
+	vars.autoEndNext = false;
+	vars.islandSplit = false; //basically tracks if we've already split on objective 0x2E3EFDAF396D8051
 }
 
 start
