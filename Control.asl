@@ -93,7 +93,7 @@ init
 		throw new Exception("Can't find completeMission function address");
 	vars.completeMissionFunctionAddress = (IntPtr)vars.completeMissionFunctionAddress;
 	var jmpInstructionSize = 12; //x64 creates 12 bytes instructions, 10 bytes to mov the addr to rax then 2 bytes for jmp'ing to rax
-	var overridenBytesForTrampoline = 14; //See the 4 original instructions below 
+	var overridenBytesForTrampoline = 14; //See the 4 original instructions below
 
 	//Original code copied (comment based on 0.96) :
 	//	0x49 ,0x8B, 0xCE, 							mov rcx,r14
@@ -340,15 +340,15 @@ split
 		//Here we iterate into our mission array and try to match the mission globalID with the one we got from the mission completion hook
 		var missionGID = game.ReadValue<int>((IntPtr)vars.isMissionCompletedAddress + 1);
 
-		print("missionGID " + ((int)missionGID).ToString("X") + " - missionArraySize " + missionArraySize.ToString());
+		print("missionGID 0x" + ((int)missionGID).ToString("X") + " - missionArraySize " + missionArraySize.ToString());
 		if (missionGID == 0x529729E) { //special case for "Endgame" mission, to stop it from splitting on the credits
 			return false;
 		}
-		else if (missionGID == 0x1F0E75B7 || missionGID == 0x7D958C2) { //another special case for Self Reflection & Captive Audience, since skips have been found that allow completing the mission without starting it
+		else if (missionGID == 0x1F0E75B7 || missionGID == 0x7D958C2) { //another special case for Self Reflection & Captive Audience, since skips have been found that allow completing those missions without starting them
 			return true;
 		}
 		else if (missionGID == 0xCFE8F15 && vars.state.Current == 0x1FCEFA6D) { //maybe blacklist Put a Record on, except in hundo? It's mission GID is 0x31EC1E03
-			return false; //stop expeditions from splitting again on the loading screen, honestly should just not split on the loading screen at all
+			return false; //stop expeditions from splitting again on the loading screen
 		}
 
 		int i = 0;
@@ -406,8 +406,7 @@ split
 				//	return (bool)settings["M03_subsplits"];
 				case 0x31689A1F87650051: //Parapsych CP in OBC
 					return (bool)settings["M04_subsplits"];
-				default:
-					break;
+				default: break;
 			}
 		}
 
@@ -424,8 +423,7 @@ split
 				case 0x33E8A13A04098051: //mold-1, this splits when picking up the type B sample near the toilets when running inbounds
 				case 0x1779C7275DDCC051: //mold-1, when doing the errands normally
 					return true;
-				default:
-					break;
+				default: break;
 			}
 		}
 
@@ -460,16 +458,11 @@ split
 				{
 					switch ((UInt64)vars.latestObjectiveHash.Current)
 					{
-						//THE FOUNDATION
-						case 0x119FA53302A50051: //Investigate the Nail or whatever 
-						//case 0x1B0C6E0946F10051: //Explore the Astral Plane Challenge x1?
-						//case 0x34218EFD2D6DC051:  //Complete the Astral Plane Challenge
-							return true;
 						//THE NAIL
 						case 0x3A696D83C0970051: //Complete the Ritual in the Warehouse
 						case 0xD44A7C450B00051: //Warehouse complete
 						case 0x5A4718B582F8051:  //Complete the ritual in the Collapsed Department
-						case 0x216E530535514051: //Collapsed department done ig UNKNOWN WTF WTF WTF
+						//case 0x216E530535514051: //Collapsed department done ig UNKNOWN WTF WTF WTF
 						case 0x195619844FFE0051:  //Collapsed department done ? (Complete ritual in the Deep Cavern is left)
 						case 0x38384013E28B0051: //site gamma + canyon rim (collapsed dept done)
 						case 0x1D7253050CBA4051: //Reach the Canyon Rim + Complete the ritual in the Deep Cavern
@@ -478,10 +471,9 @@ split
 						case 0x6BE65486A6E4051: ////Complete the ritual in the Astral Plane (Foundation / Canyon Rim)
 							return true;
 						//THE PYRAMID
-						//case 0x3E5E8A543CA30051: //Reach the bottom of the Nail (actually using this to finish The Nail split)
 						case 0x1804BDFBEC60051: //Defeat marshall
 						case 0x16EC5F1B76790051: //Cleanse the Nail
-						case 0x8D52E0CDCD80051: //Return to crossroads
+						//case 0x8D52E0CDCD80051: //Return to crossroads
 							return true;
 						default: break;
 					}
@@ -582,11 +574,10 @@ split
 	0x2BBFEED1A464C051 //Return to the Active Investigations
 
 	//It's Happening Again
-	[7684] vars.latestObjectiveHash Old 21E364FE7E814051 - Current 1FA976B3B7C84051
+	[7684] vars.latestObjectiveHash Old 0x21E364FE7E814051 - Current 0x1FA976B3B7C84051
 	0x1FA976B3B7C84051 //Traverse the Oceanview Motel
 	0x30B841738945C051 //finish motel
 	0x33673D226AC78051 //Defeat Hartman
 	0xC11D5D05BEEC051 //hartman defeated
 
 */
-
