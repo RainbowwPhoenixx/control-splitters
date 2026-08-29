@@ -507,22 +507,25 @@ split
 		}
 	}
 
-	//if (settings["dlc_support"] && vars.isFoundationPatch && vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old)
-	if (settings["dlc_support"] && vars.isFoundationPatch && !vars.playerControlEnabled.Current && vars.playerControlEnabled.Old)
-	{ //auto end for dlcs ?
-		if (settings["foundation_dlc"] && (UInt64)vars.latestObjectiveHash.Current == 0x8D52E0CDCD80051) //Return to crossroads
-		{ //The Foundation
-			game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-			return true;
-			//vars.autoEndNext = true;
-			//return false;
-		}
-		else if (settings["awe_dlc"] && (UInt64)vars.latestObjectiveHash.Current == 0x33673D226AC78051)
-		{ //AWE
-			//game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
-			//return true;
-			vars.autoEndNext = true;
-			return false;
+	if (settings["dlc_support"] && vars.isFoundationPatch &&
+		!vars.playerControlEnabled.Current && vars.playerControlEnabled.Old)
+	{ //auto end for dlcs
+		if (timer.CurrentSplitIndex == (timer.Run.Count - 1)) //only do this for our final split
+		{
+			if (settings["foundation_dlc"] && (UInt64)vars.latestObjectiveHash.Current == 0x8D52E0CDCD80051) //Return to crossroads
+			{ //The Foundation
+				game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+				return true;
+				//vars.autoEndNext = true;
+				//return false;
+			}
+			else if (settings["awe_dlc"] && (UInt64)vars.latestObjectiveHash.Current == 0x33673D226AC78051)
+			{ //AWE
+				game.WriteBytes((IntPtr)vars.latestObjectiveHashAddress, new byte[] {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
+				return true;
+				//vars.autoEndNext = true;
+				//return false;
+			}
 		}
 	}
 
