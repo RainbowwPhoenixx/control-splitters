@@ -37,18 +37,9 @@ startup
 		settings.Add("awe_dlc", false, "AWE");
 	settings.CurrentDefaultParent = null;
 
-	//so these are a bit of a hack as they just add a few more checks to the isLoading action
-	//I'm aware that livesplit can read/simulate the in-game timer so I may add that in the future (might be needed for expeditions even)
-	//leaving as is for now because of the game's timing rules
-	settings.Add("timer_ext", false, "Extended timer options (currently not allowed for submitted runs!!)");
-	settings.CurrentDefaultParent = "timer_ext";
-		settings.Add("time_out_pause_menu", false, "Time out pause menu screen (need a state for loadout menu");
-		settings.Add("time_out_photo_mode", false, "Time out photo mode screen");
-		settings.Add("time_out_cutscenes", false, "Time out cutscenes (any instance where playerControlEnabled is false)");
-	settings.CurrentDefaultParent = null;
+	//settings.Add("time_out_cutscenes", false, "Time out cutscenes (any instance where playerControlEnabled is false)");
 
 	settings.Add("debug_spew", false, "debug spew");
-	//print("startup: refreshRate " + refreshRate.ToString());
 }
 
 init
@@ -190,16 +181,13 @@ update
 		vars.latestObjectiveHash.Update(game);
 	}
 
-	if (vars.state.Current != vars.state.Old || vars.playerControlEnabled.Current != vars.playerControlEnabled.Old || vars.isLoading.Current != vars.isLoading.Old || vars.isMissionCompleted.Current != vars.isMissionCompleted.Old || vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old) {
-		print("vars.state " + ((UInt64)vars.state.Current).ToString("X") + " - vars.playerControlEnabled " + (vars.playerControlEnabled.Current).ToString() + " - vars.isLoading " + (vars.isLoading.Current).ToString() + " - vars.isMissionCompleted " + (vars.isMissionCompleted.Current).ToString());
-	}
-	if (vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old) {
-		print("vars.latestObjectiveHash Old " + ((IntPtr)vars.latestObjectiveHash.Old).ToString("X") + " - Current " + ((IntPtr)vars.latestObjectiveHash.Current).ToString("X"));
-	}
-
-	//delete me
 	if (settings["debug_spew"]) { //spits the latest objectiveHash into dbgView
-		print("vars.latestObjectiveHash " + ((IntPtr)vars.latestObjectiveHash.Current).ToString("X"));
+		if (vars.state.Current != vars.state.Old || vars.playerControlEnabled.Current != vars.playerControlEnabled.Old || vars.isLoading.Current != vars.isLoading.Old || vars.isMissionCompleted.Current != vars.isMissionCompleted.Old || vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old) {
+			print("vars.state 0x" + ((UInt64)vars.state.Current).ToString("X") + " - vars.playerControlEnabled " + (vars.playerControlEnabled.Current).ToString() + " - vars.isLoading " + (vars.isLoading.Current).ToString() + " - vars.isMissionCompleted " + (vars.isMissionCompleted.Current).ToString());
+		}
+		if (vars.latestObjectiveHash.Current != vars.latestObjectiveHash.Old) {
+			print("vars.latestObjectiveHash Old 0x" + ((IntPtr)vars.latestObjectiveHash.Old).ToString("X") + " - Current 0x" + ((IntPtr)vars.latestObjectiveHash.Current).ToString("X"));
+		}
 		//print("refreshRate: " refreshRate.ToString());
 	}
 }
@@ -255,32 +243,24 @@ start
 
 isLoading
 {
-	if (settings["timer_ext"]) {
-		if (settings["time_out_cutscenes"] && !vars.playerControlEnabled.Current)
-			return true;
-	}
+	//if (settings["timer_ext"] && settings["time_out_cutscenes"] && !vars.playerControlEnabled.Current)
+	//	return true;
 
 	switch ((UInt64)vars.state.Current)
-	{ //ugly code ik
-		case 0xEAE3EF29: //pause menu open (no state for loadout menu unfortunately...)
-			if (settings["dlc_support"] && settings["expeditions_dlc"] && !settings["boss_subsplits"]) //expeditions runs use the IGT timer
-				return true;
-			return (settings["timer_ext"] && settings["time_out_pause_menu"]);
-
+	{
 		default:
 			if (vars.latestObjectiveHash.Current == 0x32330AEED172C051 || vars.latestObjectiveHash.Current == 0x3774770F0180051)
 				return false; //no more IGT abuse
 			return vars.isLoading.Current;
+		//FIXME: Expeditions timer pauses in loadout menu, but there's no state for it.
+		case 0xEAE3EF29: //pause menu open
 		case 0x1CC77BAA: //in photo mode
-			if (settings["dlc_support"] && settings["expeditions_dlc"] && !settings["boss_subsplits"]) //expeditions runs use the IGT timer
-				return true;
-			return (settings["timer_ext"] && settings["time_out_photo_mode"]);
-
+			return true;
 		case 0x469239DF: //ClientStatePlatformServicesLogon
 		case 0xD439EBF1: //ClientStateStart
 		case 0xB5C73550: //ClientStateSplashScreen
 		case 0x63C25A55: //ClientStateMainMenu
-		case 0: //null state i guess
+		case 0: //null state, happens when restarting from crash?
 			return true;
 	}
 }
