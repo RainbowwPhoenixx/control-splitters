@@ -267,6 +267,10 @@ isLoading
 				return true;
 			return (settings["timer_ext"] && settings["time_out_pause_menu"]);
 
+		default:
+			if (vars.latestObjectiveHash.Current == 0x32330AEED172C051 || vars.latestObjectiveHash.Current == 0x3774770F0180051)
+				return false; //no more IGT abuse
+			return vars.isLoading.Current;
 		case 0x1CC77BAA: //in photo mode
 			if (settings["dlc_support"] && settings["expeditions_dlc"] && !settings["boss_subsplits"]) //expeditions runs use the IGT timer
 				return true;
@@ -278,11 +282,7 @@ isLoading
 		case 0x63C25A55: //ClientStateMainMenu
 		case 0: //null state i guess
 			return true;
-		default:
-			break;
 	}
-
-	return vars.isLoading.Current;
 }
 
 shutdown
