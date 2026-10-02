@@ -61,8 +61,8 @@ isLoading
 		case 2: //loading from main menu
 		case 10: //title splash
 		case 11: //loading to menu
+		//case 15: //main menu after credits
 		case 18: //fast travel
-		case 15: //main menu after credits
 		case 19: //credits
 			return true;
 	}
@@ -83,7 +83,7 @@ exit
 		5: in-game menu
 		10: photo-sensitivity warning/autosave message/title splash screen
 		11: loading to menu
-		18: fast travel
 		15: main menu after credits?
+		18: fast travel
 		19: credits
 */
