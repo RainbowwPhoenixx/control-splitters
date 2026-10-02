@@ -1,3 +1,8 @@
+state("CONTROLResonant", "1.4.0") //2026-10-01 patch, exe version 0.564.208.5
+{
+	int state : 0x5AE5C90;
+}
+
 state("CONTROLResonant", "1.3.3") //day 1 patch, exe version is 0.563.737.9
 {
 	int state : 0x5A18C30;
@@ -12,6 +17,9 @@ init
 {
 	switch (modules.First().ModuleMemorySize)
 	{
+		case 104701952:
+			version = "1.4.0";
+			break;
 		case 103813120:
 			version = "1.3.3";
 			break;
