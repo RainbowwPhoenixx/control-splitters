@@ -17,15 +17,9 @@ init
 {
 	switch (modules.First().ModuleMemorySize)
 	{
-		case 104701952:
-			version = "1.4.0";
-			break;
-		case 103813120:
-			version = "1.3.3";
-			break;
-		case 104820736:
-			version = "1.3.2";
-			break;
+		case 104701952:	version = "1.4.0";	break;
+		case 103813120:	version = "1.3.3";	break;
+		case 104820736:	version = "1.3.2";	break;
 		default:
 			print("ModuleMemorySize: " + modules.First().ModuleMemorySize.ToString());
 			break;
@@ -38,7 +32,9 @@ startup
 
 update
 {
-	//print(current.state.ToString());
+	if (current.state != old.state) {
+		print("current state: " + current.state.ToString());
+	}
 }
 
 start
@@ -50,7 +46,7 @@ split
 {
 	if (current.state != old.state) {
 		if (current.state == 19) {
-			return (old.state && old.state != 1); //split on credits to end for now
+			return (old.state != 0 && old.state != 1); //split on credits to end for now
 		}
 	}
 	return false;
