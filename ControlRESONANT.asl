@@ -1,3 +1,8 @@
+state("CONTROLResonant", "1.4.2") //2026-10-8 hotfix, exe version 0.564.629.5, exe size 103813120
+{
+	int state : 0x5A0CC90;
+}
+
 state("CONTROLResonant", "1.4.1") //2026-10-2 hotfix, exe version 0.564.478.0, exe size 104734720
 {
 	int state : 0x5AEDC90;
@@ -22,9 +27,9 @@ init
 {
 	var module = modules.First();
 	var versionInfo = module.FileVersionInfo;
-	print(versionInfo.FileVersion.ToString());
 	switch (versionInfo.FileVersion)
 	{
+		case "0.564.629.5":	version = "1.4.2";	break;
 		case "0.564.478.0":	version = "1.4.1";	break;
 		case "0.564.208.5":	version = "1.4.0";	break;
 		case "0.563.737.9":	version = "1.3.3";	break;
