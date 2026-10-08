@@ -1,33 +1,36 @@
-state("CONTROLResonant", "1.4.1") //2026-10-2 hotfix, exe version 0.564.478.0
+state("CONTROLResonant", "1.4.1") //2026-10-2 hotfix, exe version 0.564.478.0, exe size 104734720
 {
 	int state : 0x5AEDC90;
 }
 
-state("CONTROLResonant", "1.4.0") //2026-10-01 update, exe version 0.564.208.5
+state("CONTROLResonant", "1.4.0") //2026-10-01 update, exe version 0.564.208.5, exe size 104701952
 {
 	int state : 0x5AE5C90;
 }
 
-state("CONTROLResonant", "1.3.3") //day 1 patch, exe version is 0.563.737.9
+state("CONTROLResonant", "1.3.3") //day 1 patch, exe version is 0.563.737.9, exe size 103813120
 {
 	int state : 0x5A18C30;
 }
 
-state("CONTROLResonant", "1.3.2") //exe version is 0.563.540.8
+state("CONTROLResonant", "1.3.2") //exe version is 0.563.540.8, exe size 104820736
 {
 	int state : 0x5B0EC30;
 }
 
 init
 {
-	switch (modules.First().ModuleMemorySize)
+	var module = modules.First();
+	var versionInfo = module.FileVersionInfo;
+	print(versionInfo.FileVersion.ToString());
+	switch (versionInfo.FileVersion)
 	{
-		case 104734720:	version = "1.4.1";	break;
-		case 104701952:	version = "1.4.0";	break;
-		case 103813120:	version = "1.3.3";	break;
-		case 104820736:	version = "1.3.2";	break;
+		case "0.564.478.0":	version = "1.4.1";	break;
+		case "0.564.208.5":	version = "1.4.0";	break;
+		case "0.563.737.9":	version = "1.3.3";	break;
+		case "0.563.540.8":	version = "1.3.2";	break;
 		default:
-			print("ModuleMemorySize: " + modules.First().ModuleMemorySize.ToString());
+			print("UNKNOWN VERSION: " + "FileVersion: " + versionInfo.FileVersion.ToString() + " - ModuleMemorySize: " + module.ModuleMemorySize.ToString());
 			break;
 	}
 }
